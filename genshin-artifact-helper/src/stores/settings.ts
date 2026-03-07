@@ -14,6 +14,29 @@ export interface CaptureRegion {
   height: number
 }
 
+export interface PreprocessingOptions {
+  /** Enable contrast enhancement */
+  enhanceContrast: boolean
+  /** Contrast enhancement factor (1.0 - 3.0) */
+  contrastFactor: number
+  /** Enable denoising */
+  denoise: boolean
+  /** Enable sharpening */
+  sharpen: boolean
+  /** Use adaptive thresholding (better for varying backgrounds) */
+  adaptive: boolean
+  /** Adaptive threshold block size (must be odd, 7-21) */
+  adaptiveBlockSize: number
+  /** Enable upscaling for better OCR */
+  upscale: boolean
+  /** Upscale factor (1-3) */
+  scaleFactor: number
+  /** Enable Genshin-specific optimizations (isolate white text) */
+  genshinOptimized: boolean
+  /** Background removal threshold (0-255) */
+  backgroundThreshold: number
+}
+
 export interface CaptureSettings {
   /** Region to capture (relative to screen) */
   region: CaptureRegion | null
@@ -23,6 +46,8 @@ export interface CaptureSettings {
   captureRate: number
   /** Enable image preprocessing */
   enablePreprocessing: boolean
+  /** Preprocessing options */
+  preprocessingOptions: PreprocessingOptions
 }
 
 export interface OCRSettings {
@@ -53,6 +78,18 @@ export const useSettingsStore = defineStore('settings', () => {
     autoDetect: true,
     captureRate: 2, // 2 FPS
     enablePreprocessing: true,
+    preprocessingOptions: {
+      enhanceContrast: true,
+      contrastFactor: 1.8,
+      denoise: true,
+      sharpen: true,
+      adaptive: true,
+      adaptiveBlockSize: 11,
+      upscale: true,
+      scaleFactor: 2,
+      genshinOptimized: true,
+      backgroundThreshold: 80,
+    },
   })
 
   // State - OCR Settings
@@ -109,6 +146,30 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function togglePreprocessing() {
     captureSettings.value.enablePreprocessing = !captureSettings.value.enablePreprocessing
+    saveSettings()
+  }
+
+  function updatePreprocessingOptions(options: Partial<PreprocessingOptions>) {
+    captureSettings.value.preprocessingOptions = {
+      ...captureSettings.value.preprocessingOptions,
+      ...options,
+    }
+    saveSettings()
+  }
+
+  function resetPreprocessingOptions() {
+    captureSettings.value.preprocessingOptions = {
+      enhanceContrast: true,
+      contrastFactor: 1.8,
+      denoise: true,
+      sharpen: true,
+      adaptive: true,
+      adaptiveBlockSize: 11,
+      upscale: true,
+      scaleFactor: 2,
+      genshinOptimized: true,
+      backgroundThreshold: 80,
+    }
     saveSettings()
   }
 
@@ -216,7 +277,20 @@ export const useSettingsStore = defineStore('settings', () => {
       const saved = localStorage.getItem(STORAGE_KEY_SETTINGS)
       if (saved) {
         const settings = JSON.parse(saved)
-        captureSettings.value = settings.capture ?? captureSettings.value
+
+        // Merge capture settings to preserve new properties (like preprocessingOptions)
+        if (settings.capture) {
+          captureSettings.value = {
+            ...captureSettings.value,
+            ...settings.capture,
+            // Ensure preprocessingOptions is always present with defaults
+            preprocessingOptions: {
+              ...captureSettings.value.preprocessingOptions,
+              ...(settings.capture.preprocessingOptions || {}),
+            },
+          }
+        }
+
         ocrSettings.value = settings.ocr ?? ocrSettings.value
         uiSettings.value = settings.ui ?? uiSettings.value
         currentProfileIndex.value = settings.currentProfileIndex ?? 0
@@ -282,6 +356,8 @@ export const useSettingsStore = defineStore('settings', () => {
     setCaptureRate,
     toggleAutoDetect,
     togglePreprocessing,
+    updatePreprocessingOptions,
+    resetPreprocessingOptions,
 
     // Actions - OCR
     setOCRConfidenceThreshold,

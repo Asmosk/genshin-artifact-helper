@@ -75,12 +75,14 @@ genshin-artifact-helper/
 - [x] Build profile system
 - [x] Agent skills documentation
 
-### 🚧 Phase 2: Screen Capture & Image Processing (IN PROGRESS)
-- [ ] Screen capture utilities (getDisplayMedia)
-- [ ] Canvas-based image processing
-- [ ] Region selector UI component
-- [ ] Image preprocessing pipeline
-- [ ] Manual screenshot upload
+### ✅ Phase 2: Screen Capture & Image Processing (COMPLETED)
+- [x] Screen capture utilities (getDisplayMedia)
+- [x] Canvas-based image processing
+- [x] Region selector UI component
+- [x] Image preprocessing pipeline
+- [x] Manual screenshot upload
+- [x] Capture store with continuous mode
+- [x] Full capture view with preview
 
 ### 📋 Phase 3: OCR & Text Recognition (PLANNED)
 - [ ] Tesseract.js integration

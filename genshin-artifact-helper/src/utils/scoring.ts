@@ -11,6 +11,9 @@ import type {
 } from '@/types/artifact'
 import { MAX_SUBSTAT_VALUE, MAX_SUBSTAT_ROLL, DEFAULT_BUILD_PROFILE } from '@/types/artifact'
 
+// Re-export DEFAULT_BUILD_PROFILE for convenience
+export { DEFAULT_BUILD_PROFILE }
+
 /**
  * Artifact combined substats constant
  * Total possible substat rolls (9) / total possible rolls in a single substat (6)
