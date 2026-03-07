@@ -3,13 +3,16 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useCaptureStore } from '@/stores/capture'
 import { useSettingsStore } from '@/stores/settings'
 import { useArtifactStore } from '@/stores/artifact'
+import { useOCRStore } from '@/stores/ocr'
 import RegionSelector from '@/components/RegionSelector.vue'
 import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
+import OCRResults from '@/components/OCRResults.vue'
 import type { CaptureRegion } from '@/utils/capture'
 
 const captureStore = useCaptureStore()
 const settingsStore = useSettingsStore()
 const artifactStore = useArtifactStore()
+const ocrStore = useOCRStore()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -172,12 +175,24 @@ function adjustCaptureRate(delta: number): void {
 // Actions - Image Processing
 function clearImage(): void {
   captureStore.clearImage()
+  ocrStore.clearResult()
 }
 
-function sendToOCR(): void {
-  // TODO: This will be implemented in Phase 3
-  console.log('OCR processing will be implemented in Phase 3')
-  alert('OCR processing will be implemented in Phase 3')
+async function sendToOCR(): Promise<void> {
+  if (!captureStore.capturedImage) {
+    return
+  }
+
+  try {
+    // Use preprocessed image if available, otherwise original
+    const imageToProcess = captureStore.capturedImage.preprocessed ?? captureStore.capturedImage.original
+
+    // Use processImageAuto which automatically selects region-based or full-image OCR
+    await ocrStore.processImageAuto(imageToProcess)
+  } catch (error) {
+    console.error('OCR processing failed:', error)
+    alert('OCR processing failed. See console for details.')
+  }
 }
 </script>
 
@@ -339,6 +354,48 @@ function sendToOCR(): void {
             <PreprocessingSettings />
           </div>
         </section>
+
+        <section class="control-section">
+          <h2>OCR Settings</h2>
+
+          <div class="checkbox-control">
+            <label>
+              <input
+                type="checkbox"
+                :checked="settingsStore.ocrSettings.regions.enabled"
+                @change="settingsStore.toggleRegionBasedOCR()"
+              >
+              Use Region-Based OCR
+            </label>
+            <small>Faster and more accurate</small>
+          </div>
+
+          <div v-if="settingsStore.ocrSettings.regions.enabled" class="select-control">
+            <label>Screen Type:</label>
+            <select
+              :value="settingsStore.ocrSettings.regions.screenType"
+              @change="(e) => settingsStore.setOCRScreenType((e.target as HTMLSelectElement).value as any)"
+            >
+              <option value="auto">Auto-detect</option>
+              <option value="inventory">Inventory</option>
+              <option value="character">Character</option>
+              <option value="rewards">Rewards</option>
+            </select>
+            <small>Which screen shows the artifact</small>
+          </div>
+
+          <div v-if="settingsStore.ocrSettings.regions.enabled" class="checkbox-control">
+            <label>
+              <input
+                type="checkbox"
+                :checked="settingsStore.ocrSettings.regions.parallelProcessing"
+                @change="settingsStore.toggleParallelProcessing()"
+              >
+              Parallel Processing
+            </label>
+            <small>Process regions simultaneously</small>
+          </div>
+        </section>
       </div>
 
       <!-- Preview Panel -->
@@ -349,8 +406,12 @@ function sendToOCR(): void {
             <button class="btn btn-small btn-secondary" @click="clearImage">
               Clear
             </button>
-            <button class="btn btn-primary" @click="sendToOCR">
-              Process with OCR
+            <button
+              class="btn btn-primary"
+              :disabled="ocrStore.isProcessing"
+              @click="sendToOCR"
+            >
+              {{ ocrStore.isProcessing ? 'Processing...' : 'Process with OCR' }}
             </button>
           </div>
         </div>
@@ -365,6 +426,16 @@ function sendToOCR(): void {
             ref="previewCanvasRef"
             class="preview-canvas"
           />
+        </div>
+
+        <!-- OCR Progress -->
+        <div v-if="ocrStore.isProcessing" class="ocr-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: ocrStore.progress + '%' }" />
+          </div>
+          <div class="progress-text">
+            {{ ocrStore.progressStatus }} ({{ ocrStore.progress }}%)
+          </div>
         </div>
 
         <div v-if="hasImage && captureStore.capturedImage" class="preview-info">
@@ -384,6 +455,11 @@ function sendToOCR(): void {
             <span>{{ captureStore.capturedImage.preprocessed ? 'Yes' : 'No' }}</span>
           </div>
         </div>
+      </div>
+
+      <!-- OCR Results Panel -->
+      <div v-if="ocrStore.hasResult || ocrStore.hasError" class="ocr-panel">
+        <OCRResults />
       </div>
     </div>
   </div>
@@ -427,10 +503,14 @@ function sendToOCR(): void {
 
 .content {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 300px 1fr 400px;
   gap: 1rem;
   flex: 1;
   overflow: hidden;
+}
+
+.content:not(:has(.ocr-panel)) {
+  grid-template-columns: 300px 1fr;
 }
 
 .controls-panel {
@@ -565,6 +645,44 @@ function sendToOCR(): void {
   font-size: 0.8rem;
 }
 
+.select-control {
+  margin-top: 1rem;
+}
+
+.select-control label {
+  display: block;
+  color: #fff;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.select-control select {
+  width: 100%;
+  padding: 0.5rem;
+  background: #2a2a2a;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin-bottom: 0.25rem;
+}
+
+.select-control select:hover {
+  border-color: #666;
+}
+
+.select-control select:focus {
+  outline: none;
+  border-color: #00ff00;
+}
+
+.select-control small {
+  display: block;
+  color: #888;
+  font-size: 0.8rem;
+}
+
 .capture-rate-control {
   margin-top: 1rem;
 }
@@ -687,5 +805,38 @@ function sendToOCR(): void {
   width: 1200px;
   height: 800px;
   display: flex;
+}
+
+.ocr-progress {
+  padding: 1rem;
+  border-top: 1px solid #333;
+  background: #2a2a2a;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff00, #00dd00);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.85rem;
+  color: #888;
+  text-align: center;
+}
+
+.ocr-panel {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 </style>

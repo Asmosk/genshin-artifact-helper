@@ -84,12 +84,15 @@ genshin-artifact-helper/
 - [x] Capture store with continuous mode
 - [x] Full capture view with preview
 
-### 📋 Phase 3: OCR & Text Recognition (PLANNED)
-- [ ] Tesseract.js integration
-- [ ] OCR worker setup
-- [ ] Text parsing for artifact stats
-- [ ] OCR error correction
-- [ ] Confidence scoring
+### ✅ Phase 3: OCR & Text Recognition (COMPLETED)
+- [x] Tesseract.js integration
+- [x] OCR worker setup with lifecycle management
+- [x] Text parsing for artifact stats
+- [x] OCR error correction (O↔0, I↔1↔l, S↔5)
+- [x] Confidence scoring and validation
+- [x] Automated test suite with fixtures
+- [x] OCR results UI component
+- [x] Integration with CaptureView
 
 ### 📋 Phase 4: UI Components (PLANNED)
 - [ ] Main dashboard view

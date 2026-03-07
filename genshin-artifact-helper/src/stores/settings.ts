@@ -50,6 +50,17 @@ export interface CaptureSettings {
   preprocessingOptions: PreprocessingOptions
 }
 
+export interface OCRRegionSettings {
+  /** Enable region-based OCR */
+  enabled: boolean
+  /** Screen type ('auto' | 'character' | 'inventory' | 'rewards') */
+  screenType: 'auto' | 'character' | 'inventory' | 'rewards'
+  /** Use star detection for anchor positioning */
+  useStarAnchor: boolean
+  /** Process regions in parallel for better performance */
+  parallelProcessing: boolean
+}
+
 export interface OCRSettings {
   /** OCR confidence threshold (0-1) */
   confidenceThreshold: number
@@ -57,6 +68,8 @@ export interface OCRSettings {
   autoCorrect: boolean
   /** Language for OCR */
   language: string
+  /** Region-based OCR settings */
+  regions: OCRRegionSettings
 }
 
 export interface UISettings {
@@ -79,16 +92,16 @@ export const useSettingsStore = defineStore('settings', () => {
     captureRate: 2, // 2 FPS
     enablePreprocessing: true,
     preprocessingOptions: {
-      enhanceContrast: true,
+      enhanceContrast: false,
       contrastFactor: 1.8,
-      denoise: true,
-      sharpen: true,
-      adaptive: true,
+      denoise: false,
+      sharpen: false,
+      adaptive: false,
       adaptiveBlockSize: 11,
-      upscale: true,
-      scaleFactor: 2,
+      upscale: false,
+      scaleFactor: 1,
       genshinOptimized: true,
-      backgroundThreshold: 80,
+      backgroundThreshold: 160,
     },
   })
 
@@ -97,6 +110,12 @@ export const useSettingsStore = defineStore('settings', () => {
     confidenceThreshold: 0.7,
     autoCorrect: true,
     language: 'eng',
+    regions: {
+      enabled: true, // Enable region-based OCR by default
+      screenType: 'auto', // Auto-detect screen type
+      useStarAnchor: false, // Star detection not implemented yet
+      parallelProcessing: true, // Process regions in parallel for speed
+    },
   })
 
   // State - UI Settings
@@ -159,16 +178,16 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function resetPreprocessingOptions() {
     captureSettings.value.preprocessingOptions = {
-      enhanceContrast: true,
+      enhanceContrast: false,
       contrastFactor: 1.8,
-      denoise: true,
-      sharpen: true,
-      adaptive: true,
+      denoise: false,
+      sharpen: false,
+      adaptive: false,
       adaptiveBlockSize: 11,
-      upscale: true,
+      upscale: false,
       scaleFactor: 2,
       genshinOptimized: true,
-      backgroundThreshold: 80,
+      backgroundThreshold: 160,
     }
     saveSettings()
   }
@@ -181,6 +200,34 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function toggleAutoCorrect() {
     ocrSettings.value.autoCorrect = !ocrSettings.value.autoCorrect
+    saveSettings()
+  }
+
+  function toggleRegionBasedOCR() {
+    ocrSettings.value.regions.enabled = !ocrSettings.value.regions.enabled
+    saveSettings()
+  }
+
+  function setOCRScreenType(screenType: OCRRegionSettings['screenType']) {
+    ocrSettings.value.regions.screenType = screenType
+    saveSettings()
+  }
+
+  function toggleStarAnchor() {
+    ocrSettings.value.regions.useStarAnchor = !ocrSettings.value.regions.useStarAnchor
+    saveSettings()
+  }
+
+  function toggleParallelProcessing() {
+    ocrSettings.value.regions.parallelProcessing = !ocrSettings.value.regions.parallelProcessing
+    saveSettings()
+  }
+
+  function updateRegionSettings(settings: Partial<OCRRegionSettings>) {
+    ocrSettings.value.regions = {
+      ...ocrSettings.value.regions,
+      ...settings,
+    }
     saveSettings()
   }
 
@@ -362,6 +409,11 @@ export const useSettingsStore = defineStore('settings', () => {
     // Actions - OCR
     setOCRConfidenceThreshold,
     toggleAutoCorrect,
+    toggleRegionBasedOCR,
+    setOCRScreenType,
+    toggleStarAnchor,
+    toggleParallelProcessing,
+    updateRegionSettings,
 
     // Actions - UI
     setTheme,
