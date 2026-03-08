@@ -144,24 +144,6 @@ export interface StarDetectionResult {
     height: number
   }
 }
-
-/**
- * Screen type detection result
- */
-export interface ScreenDetectionResult {
-  /** Detected screen type */
-  screenType: ScreenType
-
-  /** Detection confidence (0-1) */
-  confidence: number
-
-  /** Alternative screen types with their confidence scores */
-  alternatives?: Array<{
-    screenType: ScreenType
-    confidence: number
-  }>
-}
-
 /**
  * Options for region-based OCR processing
  */
@@ -228,8 +210,3 @@ export const REGION_NAMES = {
   SUBSTAT_3: 'substat3',
   SUBSTAT_4: 'substat4',
 } as const
-
-/**
- * Type helper for region name keys
- */
-export type RegionName = (typeof REGION_NAMES)[keyof typeof REGION_NAMES]

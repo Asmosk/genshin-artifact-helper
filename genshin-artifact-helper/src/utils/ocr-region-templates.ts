@@ -220,14 +220,6 @@ export const REGION_TEMPLATES: Record<ScreenType, ArtifactRegionLayout> = {
 export function getRegionTemplate(screenType: ScreenType): ArtifactRegionLayout {
   return REGION_TEMPLATES[screenType]
 }
-
-/**
- * Get all available region templates
- */
-export function getAllRegionTemplates(): ArtifactRegionLayout[] {
-  return Object.values(REGION_TEMPLATES)
-}
-
 /**
  * Calculate absolute pixel coordinates from anchor-relative region definition.
  * pixelX = anchorPx.x + region.x * imageWidth
@@ -263,74 +255,4 @@ export function calculateAllRegionPositions(
   }
 
   return positions
-}
-
-/**
- * Adjust layout for piece names that wrap to multiple lines.
- * When piece name wraps, shift all regions below it down.
- */
-export function adjustLayoutForMultilinePieceName(
-  layout: ArtifactRegionLayout,
-  lineCount: number,
-): ArtifactRegionLayout {
-  if (lineCount <= 1) return layout
-
-  const shiftAmount = (lineCount - 1) * 0.03 // ~3% per extra line
-
-  const adjusted: ArtifactRegionLayout = {
-    ...layout,
-    regions: { ...layout.regions },
-  }
-
-  const pieceNameBottom = layout.regions.pieceName.y + layout.regions.pieceName.height
-
-  for (const [key, region] of Object.entries(adjusted.regions)) {
-    if (region.y > pieceNameBottom) {
-      adjusted.regions[key as keyof typeof adjusted.regions] = {
-        ...region,
-        y: region.y + shiftAmount,
-      }
-    }
-  }
-
-  return adjusted
-}
-
-/**
- * Validate that a layout has all required regions
- */
-export function validateLayout(layout: ArtifactRegionLayout): { valid: boolean; errors: string[] } {
-  const errors: string[] = []
-  const requiredRegions = [
-    'pieceName',
-    'slotName',
-    'mainStatName',
-    'mainStatValue',
-    'level',
-    'substat1',
-    'substat2',
-    'substat3',
-    'substat4',
-  ]
-
-  for (const required of requiredRegions) {
-    if (!(required in layout.regions)) {
-      errors.push(`Missing required region: ${required}`)
-    }
-  }
-
-  // Validate width/height (must be positive and <= 1)
-  for (const [key, region] of Object.entries(layout.regions)) {
-    if (region.width <= 0 || region.width > 1) {
-      errors.push(`Region ${key}: width out of range (${region.width})`)
-    }
-    if (region.height <= 0 || region.height > 1) {
-      errors.push(`Region ${key}: height out of range (${region.height})`)
-    }
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  }
 }

@@ -15,7 +15,7 @@ import type { OCRConfig } from './ocr'
 import { getOCRWorker, DEFAULT_OCR_CONFIG } from './ocr'
 import { calculateAllRegionPositions } from './ocr-region-templates'
 import { cropCanvas, preprocessRegion, regionContainsText } from './region-extraction'
-import { detectStars, detectStarsInFullScreen } from './star-detection'
+import { detectStarsInFullScreen } from './star-detection'
 import type { PreprocessingOptions } from '@/stores/settings'
 
 /**
@@ -245,62 +245,4 @@ export function getRegionResultsMap(
     map.set(result.regionName, result)
   }
   return map
-}
-
-/**
- * Filter results to only include regions with valid text
- */
-export function getValidRegionResults(results: RegionOCRResult[]): RegionOCRResult[] {
-  return results.filter((r) => r.text.length > 0 && r.confidence > 0.5)
-}
-
-/**
- * Get lowest confidence region (for debugging)
- */
-export function getLowestConfidenceRegion(results: RegionOCRResult[]): RegionOCRResult | null {
-  const valid = getValidRegionResults(results)
-  if (valid.length === 0) return null
-
-  return valid.reduce((lowest, current) =>
-    current.confidence < lowest.confidence ? current : lowest,
-  )
-}
-
-/**
- * Get total text length extracted (for quality check)
- */
-export function getTotalTextLength(results: RegionOCRResult[]): number {
-  return results.reduce((sum, r) => sum + r.text.length, 0)
-}
-
-/**
- * Format region results for debugging/logging
- */
-export function formatRegionResults(results: RegionOCRResult[]): string {
-  let formatted = '=== Region OCR Results ===\n'
-
-  for (const result of results) {
-    formatted += `\n[${result.regionName}] (confidence: ${(result.confidence * 100).toFixed(1)}%)\n`
-    formatted += `  "${result.text}"\n`
-    formatted += `  Time: ${result.processingTime}ms\n`
-  }
-
-  return formatted
-}
-
-/**
- * Estimate processing time based on region count and parallelization
- */
-export function estimateProcessingTime(
-  regionCount: number,
-  parallel: boolean,
-  avgTimePerRegion: number = 200,
-): number {
-  if (parallel) {
-    // Parallel: dominated by slowest region + overhead
-    return Math.ceil(avgTimePerRegion * 1.2) // 20% overhead
-  } else {
-    // Sequential: sum of all regions
-    return regionCount * avgTimePerRegion
-  }
 }

@@ -30,16 +30,14 @@ export async function requestScreenCapture(
   }
 
   try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
+    return await navigator.mediaDevices.getDisplayMedia({
       video: {
         cursor: 'never',
-        frameRate: { ideal: 30, max: 60 },
+        frameRate: {ideal: 30, max: 60},
         ...options.video,
       } as MediaTrackConstraints,
       audio: options.audio ?? false,
     })
-
-    return stream
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'NotAllowedError') {
@@ -231,56 +229,4 @@ export function loadImageToCanvas(file: File): Promise<HTMLCanvasElement> {
     }
     reader.readAsDataURL(file)
   })
-}
-
-/**
- * Convert canvas to blob for download/upload
- */
-export function canvasToBlob(
-  canvas: HTMLCanvasElement,
-  type: string = 'image/png',
-  quality: number = 0.95,
-): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) {
-          resolve(blob)
-        } else {
-          reject(new Error('Failed to convert canvas to blob'))
-        }
-      },
-      type,
-      quality,
-    )
-  })
-}
-
-/**
- * Download canvas as image file
- */
-export async function downloadCanvas(
-  canvas: HTMLCanvasElement,
-  filename: string = 'capture.png',
-): Promise<void> {
-  const blob = await canvasToBlob(canvas)
-  const url = URL.createObjectURL(blob)
-
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-
-  URL.revokeObjectURL(url)
-}
-
-/**
- * Get canvas as data URL
- */
-export function canvasToDataURL(
-  canvas: HTMLCanvasElement,
-  type: string = 'image/png',
-  quality: number = 0.95,
-): string {
-  return canvas.toDataURL(type, quality)
 }

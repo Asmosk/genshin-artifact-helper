@@ -2,7 +2,7 @@
  * OCR utilities using Tesseract.js for artifact text recognition
  */
 
-import { createWorker, type Worker, type WorkerOptions, type RecognizeResult } from 'tesseract.js'
+import {createWorker, type RecognizeResult, type Worker} from 'tesseract.js'
 
 /**
  * OCR configuration optimized for Genshin artifact screenshots
@@ -98,9 +98,7 @@ export class OCRWorker {
     }
 
     try {
-      const result = await this.worker.recognize(image)
-
-      return result
+      return await this.worker.recognize(image)
     } catch (error) {
       throw new Error(
         `OCR recognition failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -149,63 +147,5 @@ export async function terminateGlobalWorker(): Promise<void> {
   if (globalWorker) {
     await globalWorker.terminate()
     globalWorker = null
-  }
-}
-
-/**
- * Quick OCR helper - recognizes text from an image
- * Uses the global worker instance for efficiency
- */
-export async function recognizeText(
-  image: HTMLCanvasElement | HTMLImageElement | string,
-  config?: OCRConfig,
-  onProgress?: OCRProgressCallback,
-): Promise<string> {
-  const worker = getOCRWorker(config)
-
-  // Initialize if needed
-  if (!worker.initialized) {
-    await worker.initialize(onProgress)
-  }
-
-  // Recognize
-  const result = await worker.recognize(image, onProgress)
-
-  return result.data.text
-}
-
-/**
- * Advanced OCR helper - returns full recognition result with confidence
- */
-export async function recognizeWithConfidence(
-  image: HTMLCanvasElement | HTMLImageElement | string,
-  config?: OCRConfig,
-  onProgress?: OCRProgressCallback,
-): Promise<{
-  text: string
-  confidence: number
-  lines: Array<{ text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }>
-}> {
-  const worker = getOCRWorker(config)
-
-  // Initialize if needed
-  if (!worker.initialized) {
-    await worker.initialize(onProgress)
-  }
-
-  // Recognize
-  const result = await worker.recognize(image)
-
-  // Extract line-level information
-  const lines = (result.data as any).lines?.map((line: any) => ({
-    text: line.text,
-    confidence: line.confidence,
-    bbox: line.bbox,
-  })) || []
-
-  return {
-    text: result.data.text,
-    confidence: result.data.confidence,
-    lines,
   }
 }
