@@ -8,7 +8,7 @@ import { getOCRWorker, terminateGlobalWorker, type OCRProgressCallback } from '@
 import { parseArtifact, parseArtifactFromRegions } from '@/utils/parsing'
 import { preprocessForOCR } from '@/utils/preprocessing'
 import type { OCRResult } from '@/types/artifact'
-import type { ScreenType } from '@/types/ocr-regions'
+import type { ScreenType, ArtifactRegionLayout } from '@/types/ocr-regions'
 import { recognizeRegions } from '@/utils/ocr-regions'
 import { getRegionTemplate } from '@/utils/ocr-region-templates'
 import { useSettingsStore } from './settings'
@@ -24,6 +24,7 @@ export const useOCRStore = defineStore('ocr', () => {
   const progress = ref(0) // 0-100
   const progressStatus = ref('')
   const result = ref<OCRResult | null>(null)
+  const activeLayout = ref<ArtifactRegionLayout | null>(null)
   const error = ref<string | null>(null)
   const processingTime = ref(0) // milliseconds
 
@@ -83,6 +84,7 @@ export const useOCRStore = defineStore('ocr', () => {
       state.value = 'processing'
       error.value = null
       result.value = null
+      activeLayout.value = null
       progress.value = 0
       progressStatus.value = 'Processing image...'
 
@@ -144,6 +146,7 @@ export const useOCRStore = defineStore('ocr', () => {
    */
   function clearResult(): void {
     result.value = null
+    activeLayout.value = null
     error.value = null
     progress.value = 0
     progressStatus.value = ''
@@ -175,6 +178,7 @@ export const useOCRStore = defineStore('ocr', () => {
       state.value = 'processing'
       error.value = null
       result.value = null
+      activeLayout.value = null
       progress.value = 0
       progressStatus.value = 'Initializing region-based OCR...'
 
@@ -196,6 +200,7 @@ export const useOCRStore = defineStore('ocr', () => {
 
       // Get layout template for screen type
       const layout = getRegionTemplate(detectedScreenType)
+      activeLayout.value = layout
       progress.value = 20
       progressStatus.value = `Using ${detectedScreenType} screen layout...`
 
@@ -326,6 +331,7 @@ export const useOCRStore = defineStore('ocr', () => {
     isComplete,
     hasError,
     hasResult,
+    activeLayout,
 
     // Actions
     initialize,

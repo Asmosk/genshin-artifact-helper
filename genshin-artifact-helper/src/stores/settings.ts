@@ -338,8 +338,25 @@ export const useSettingsStore = defineStore('settings', () => {
           }
         }
 
-        ocrSettings.value = settings.ocr ?? ocrSettings.value
-        uiSettings.value = settings.ui ?? uiSettings.value
+        // Merge OCR settings to ensure new properties like regions are present
+        if (settings.ocr) {
+          ocrSettings.value = {
+            ...ocrSettings.value,
+            ...settings.ocr,
+            // Ensure regions is always present with defaults
+            regions: {
+              ...ocrSettings.value.regions,
+              ...(settings.ocr.regions || {}),
+            },
+          }
+        }
+        // Merge UI settings to ensure new properties are present
+        if (settings.ui) {
+          uiSettings.value = {
+            ...uiSettings.value,
+            ...settings.ui,
+          }
+        }
         currentProfileIndex.value = settings.currentProfileIndex ?? 0
 
         // Apply theme

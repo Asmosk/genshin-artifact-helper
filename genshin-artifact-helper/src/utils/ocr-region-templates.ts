@@ -43,17 +43,17 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
   screenType: 'inventory',
   description: 'Standard inventory screen artifact view',
   referenceResolution: {
-    width: 1920,
-    height: 1080,
+    width: 3440,
+    height: 1440,
   },
 
   // Anchor region: rarity stars (used for positioning other regions)
   anchorRegion: createRegion(
     REGION_NAMES.RARITY,
-    0.12, // 12% from left
-    0.18, // 18% from top
-    0.15, // 15% width
-    0.03, // 3% height
+    0.0, // 12% from left
+    0.0, // 18% from top
+    0.30, // 15% width
+    0.30, // 3% height
     'stars',
     { whitelist: '★⭐' },
   ),
@@ -86,8 +86,8 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       'text',
     ),
 
-    // Rarity (stars) - same as anchor
-    rarity: createRegion(REGION_NAMES.RARITY, 0.12, 0.18, 0.15, 0.03, 'stars'),
+    // Rarity (stars) - same as anchor (referencing same object)
+    rarity: null as any, // Placeholder, will be assigned below
 
     // Level (e.g., "+20")
     level: createRegion(
@@ -128,6 +128,7 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
     }),
   },
 }
+INVENTORY_LAYOUT.regions.rarity = INVENTORY_LAYOUT.anchorRegion
 
 /**
  * Character Screen Layout
@@ -140,8 +141,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
   screenType: 'character',
   description: 'Character equipment screen artifact view',
   referenceResolution: {
-    width: 1920,
-    height: 1080,
+    width: 3440,
+    height: 1440,
   },
 
   // Anchor region: rarity stars
@@ -169,7 +170,7 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     slotName: createRegion(REGION_NAMES.SLOT_NAME, 0.65, 0.19, 0.18, 0.03, 'text'),
 
     // Rarity (stars)
-    rarity: createRegion(REGION_NAMES.RARITY, 0.68, 0.15, 0.12, 0.03, 'stars'),
+    rarity: null as any,
 
     // Level
     level: createRegion(
@@ -212,6 +213,7 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     }),
   },
 }
+CHARACTER_LAYOUT.regions.rarity = CHARACTER_LAYOUT.anchorRegion
 
 /**
  * Rewards Screen Layout
@@ -224,8 +226,8 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
   screenType: 'rewards',
   description: 'Rewards/Domain completion screen artifact view',
   referenceResolution: {
-    width: 1920,
-    height: 1080,
+    width: 3440,
+    height: 1440,
   },
 
   // Anchor region: rarity stars
@@ -253,7 +255,7 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
     slotName: createRegion(REGION_NAMES.SLOT_NAME, 0.38, 0.26, 0.2, 0.03, 'text'),
 
     // Rarity (stars)
-    rarity: createRegion(REGION_NAMES.RARITY, 0.42, 0.22, 0.15, 0.03, 'stars'),
+    rarity: null as any,
 
     // Level
     level: createRegion(
@@ -296,6 +298,7 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
     }),
   },
 }
+REWARDS_LAYOUT.regions.rarity = REWARDS_LAYOUT.anchorRegion
 
 /**
  * All predefined region templates

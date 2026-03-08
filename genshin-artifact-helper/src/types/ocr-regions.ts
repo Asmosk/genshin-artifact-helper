@@ -80,7 +80,7 @@ export interface ArtifactRegionLayout {
   }
 
   /** Special anchor region (rarity stars) for auto-positioning */
-  anchorRegion?: OCRRegion
+  anchorRegion: OCRRegion
 
   /** All text regions to process */
   regions: {

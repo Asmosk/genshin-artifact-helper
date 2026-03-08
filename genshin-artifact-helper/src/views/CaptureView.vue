@@ -4,6 +4,7 @@ import { useCaptureStore } from '@/stores/capture'
 import { useSettingsStore } from '@/stores/settings'
 import { useArtifactStore } from '@/stores/artifact'
 import { useOCRStore } from '@/stores/ocr'
+import { getRegionTemplate } from '@/utils/ocr-region-templates'
 import RegionSelector from '@/components/RegionSelector.vue'
 import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
 import OCRResults from '@/components/OCRResults.vue'
@@ -19,6 +20,7 @@ const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
 const showRegionSelector = ref(false)
 const regionSelectorCanvas = ref<HTMLCanvasElement | null>(null)
 const showAdvancedPreprocessing = ref(false)
+const showOCRRegions = ref(true)
 
 // Computed
 const hasCapture = computed(() => captureStore.isActive)
@@ -44,9 +46,24 @@ const statusMessage = computed(() => {
 })
 
 // Watch for captured images and update preview
+const activeLayout = computed(() => {
+  if (ocrStore.activeLayout) {
+    return ocrStore.activeLayout
+  }
+  // If no active layout from OCR run, but we have a screen type selected, show that template for preview
+  if (settingsStore.ocrSettings.regions.enabled && settingsStore.ocrSettings.regions.screenType !== 'auto') {
+    try {
+      return getRegionTemplate(settingsStore.ocrSettings.regions.screenType as any)
+    } catch (e) {
+      return null
+    }
+  }
+  return null
+})
+
 watch(
-  () => captureStore.capturedImage,
-  async (image) => {
+  [() => captureStore.capturedImage, activeLayout, showOCRRegions],
+  async ([image, layout]) => {
     if (image) {
       // Wait for DOM to update (canvas element to be rendered)
       await nextTick()
@@ -58,11 +75,63 @@ watch(
           previewCanvasRef.value.width = displayCanvas.width
           previewCanvasRef.value.height = displayCanvas.height
           ctx.drawImage(displayCanvas, 0, 0)
+
+          // Draw OCR regions if enabled and available
+          if (showOCRRegions.value && layout) {
+            drawOCRRegions(ctx, layout, previewCanvasRef.value.width, previewCanvasRef.value.height)
+          }
         }
       }
     }
   },
 )
+
+function drawOCRRegions(
+  ctx: CanvasRenderingContext2D,
+  layout: any,
+  width: number,
+  height: number,
+): void {
+  ctx.strokeStyle = '#00ff00'
+  ctx.lineWidth = 2
+  ctx.fillStyle = '#00ff00'
+  ctx.font = 'bold 12px sans-serif'
+  ctx.textBaseline = 'bottom'
+
+  const drawRegion = (region: any, name: string) => {
+    const rx = region.x * width
+    const ry = region.y * height
+    const rw = region.width * width
+    const rh = region.height * height
+
+    // Draw rectangle
+    ctx.strokeRect(rx, ry, rw, rh)
+
+    // Draw label background for better readability
+    const label = name.replace(/([A-Z])/g, ' $1').toLowerCase()
+    const textWidth = ctx.measureText(label).width
+    ctx.globalAlpha = 0.7
+    ctx.fillRect(rx, ry - 18, textWidth + 10, 18)
+    ctx.globalAlpha = 1.0
+
+    // Draw label text
+    ctx.fillStyle = '#000'
+    ctx.fillText(label, rx + 5, ry - 2)
+    ctx.fillStyle = '#00ff00'
+  }
+
+  // Draw anchor region if it exists
+  if (layout.anchorRegion) {
+    drawRegion(layout.anchorRegion, 'anchor')
+  }
+
+  // Draw all other regions
+  for (const [name, region] of Object.entries(layout.regions)) {
+    // Skip if it's the same as anchor (avoid double drawing)
+    if (region === layout.anchorRegion) continue
+    drawRegion(region as any, name)
+  }
+}
 
 // Actions - Screen Capture
 async function startScreenCapture(): Promise<void> {
@@ -394,6 +463,17 @@ async function sendToOCR(): Promise<void> {
               Parallel Processing
             </label>
             <small>Process regions simultaneously</small>
+          </div>
+
+          <div v-if="settingsStore.ocrSettings.regions.enabled" class="checkbox-control">
+            <label>
+              <input
+                type="checkbox"
+                v-model="showOCRRegions"
+              >
+              Show Regions on Preview
+            </label>
+            <small>Highlight identified OCR areas</small>
           </div>
         </section>
       </div>
