@@ -82,50 +82,18 @@ export function getPreprocessingForMode(
   // Mode-specific adjustments
   switch (ocrMode) {
     case 'number':
-      // Numbers: aggressive preprocessing for clarity
       return {
         ...options,
-        enhanceContrast: true,
-        contrastFactor: 2.2,
-        denoise: true,
-        sharpen: true,
-        adaptive: false, // Simple threshold works better for numbers
-        upscale: true,
-        scaleFactor: 3, // Higher upscale for small numbers
-        genshinOptimized: true,
-        backgroundThreshold: 180,
       }
 
     case 'text':
-      // Text: balanced preprocessing
       return {
         ...options,
-        enhanceContrast: true,
-        contrastFactor: 1.8,
-        denoise: false, // Can blur text edges
-        sharpen: true,
-        adaptive: true, // Better for varying text backgrounds
-        adaptiveBlockSize: 11,
-        upscale: true,
-        scaleFactor: 2,
-        genshinOptimized: true,
-        backgroundThreshold: 160,
       }
 
     case 'mixed':
-      // Mixed (stat names + values): moderate preprocessing
       return {
         ...options,
-        enhanceContrast: true,
-        contrastFactor: 2.0,
-        denoise: false,
-        sharpen: true,
-        adaptive: true,
-        adaptiveBlockSize: 11,
-        upscale: true,
-        scaleFactor: 2,
-        genshinOptimized: true,
-        backgroundThreshold: 170,
       }
 
     default:

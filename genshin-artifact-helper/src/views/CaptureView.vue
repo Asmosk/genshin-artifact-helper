@@ -9,6 +9,7 @@ import RegionSelector from '@/components/RegionSelector.vue'
 import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
 import OCRResults from '@/components/OCRResults.vue'
 import OCRRegionOffsetSetup from '@/components/OCRRegionOffsetSetup.vue'
+import OCRRegionPreviews from '@/components/OCRRegionPreviews.vue'
 import type { CaptureRegion } from '@/utils/capture'
 import type { ArtifactRegionLayout, ScreenType } from '@/types/ocr-regions'
 import {
@@ -766,6 +767,12 @@ async function sendToOCR(): Promise<void> {
             class="preview-canvas"
           />
         </div>
+
+        <!-- Region Previews -->
+        <OCRRegionPreviews
+          v-if="ocrStore.regionResults.length > 0"
+          :regions="ocrStore.regionResults"
+        />
 
         <!-- OCR Progress -->
         <div v-if="ocrStore.isProcessing" class="ocr-progress">

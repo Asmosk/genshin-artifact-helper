@@ -88,7 +88,7 @@ export const useSettingsStore = defineStore('settings', () => {
     region: null,
     autoDetect: true,
     captureRate: 2, // 2 FPS
-    enablePreprocessing: true,
+    enablePreprocessing: false,
     preprocessingOptions: {
       enhanceContrast: false,
       contrastFactor: 1.8,

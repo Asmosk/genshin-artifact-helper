@@ -8,7 +8,7 @@ import { getOCRWorker, terminateGlobalWorker, type OCRProgressCallback } from '@
 import { parseArtifact, parseArtifactFromRegions } from '@/utils/parsing'
 import { preprocessForOCR } from '@/utils/preprocessing'
 import type { OCRResult } from '@/types/artifact'
-import type { ScreenType, ArtifactRegionLayout, Rectangle } from '@/types/ocr-regions'
+import type { ScreenType, ArtifactRegionLayout, Rectangle, RegionOCRResult } from '@/types/ocr-regions'
 import { recognizeRegions } from '@/utils/ocr-regions'
 import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
 import { detectStarsInFullScreen } from '@/utils/star-detection'
@@ -31,6 +31,7 @@ export const useOCRStore = defineStore('ocr', () => {
   const detectedRarityBounds = ref<Rectangle | null>(null)
   const detectedRegionPositions = ref<Map<string, Rectangle> | null>(null)
   const detectedAnchorPx = ref<{ x: number; y: number } | null>(null)
+  const regionResults = ref<RegionOCRResult[]>([])
 
   // Getters
   const isProcessing = computed(() => state.value === 'processing' || state.value === 'initializing')
@@ -159,6 +160,7 @@ export const useOCRStore = defineStore('ocr', () => {
     detectedRarityBounds.value = null
     detectedRegionPositions.value = null
     detectedAnchorPx.value = null
+    regionResults.value = []
   }
 
   /**
@@ -238,6 +240,7 @@ export const useOCRStore = defineStore('ocr', () => {
       if (regionResult.starDetection) {
         detectedAnchorPx.value = { x: regionResult.starDetection.position.x, y: regionResult.starDetection.position.y }
       }
+      regionResults.value = regionResult.regions
 
       progress.value = 85
       progressStatus.value = 'Parsing artifact data...'
@@ -378,6 +381,7 @@ export const useOCRStore = defineStore('ocr', () => {
     detectedRarityBounds,
     detectedRegionPositions,
     detectedAnchorPx,
+    regionResults,
 
     // Getters
     isProcessing,

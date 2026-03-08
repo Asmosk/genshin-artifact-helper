@@ -117,6 +117,9 @@ export interface RegionOCRResult {
 
   /** Processing time for this region (ms) */
   processingTime?: number
+
+  /** Preprocessed canvas that was sent to the OCR engine (for debugging/preview) */
+  preprocessedCanvas?: HTMLCanvasElement
 }
 
 /**

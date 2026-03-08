@@ -41,6 +41,7 @@ async function processRegion(
         text: '',
         confidence: 1.0, // Empty is expected for optional regions
         position,
+        preprocessedCanvas: cropped,
         processingTime: Date.now() - startTime,
       }
     }
@@ -85,6 +86,7 @@ async function processRegion(
       text: result.data.text.trim(),
       confidence: result.data.confidence / 100, // Tesseract returns 0-100
       position,
+      preprocessedCanvas: preprocessed,
       processingTime: Date.now() - startTime,
     }
   } catch (error) {
