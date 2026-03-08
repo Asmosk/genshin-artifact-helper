@@ -15,6 +15,8 @@ export interface CaptureRegion {
 }
 
 export interface PreprocessingOptions {
+  /** Convert image to grayscale */
+  grayscale: boolean
   /** Enable contrast enhancement */
   enhanceContrast: boolean
   /** Contrast enhancement factor (1.0 - 3.0) */
@@ -90,6 +92,7 @@ export const useSettingsStore = defineStore('settings', () => {
     captureRate: 2, // 2 FPS
     enablePreprocessing: false,
     preprocessingOptions: {
+      grayscale: false,
       enhanceContrast: false,
       contrastFactor: 1.8,
       denoise: false,
@@ -175,6 +178,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function resetPreprocessingOptions() {
     captureSettings.value.preprocessingOptions = {
+      grayscale: false,
       enhanceContrast: false,
       contrastFactor: 1.8,
       denoise: false,

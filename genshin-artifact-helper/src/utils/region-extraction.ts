@@ -91,6 +91,7 @@ export function preprocessRegion(
   canvas: HTMLCanvasElement,
   region: OCRRegion,
   baseOptions: PreprocessingOptions,
+  globalOverrides?: Partial<PreprocessingOptions>,
 ): HTMLCanvasElement {
   // Get mode-specific options
   let options = getPreprocessingForMode(region.ocrMode, baseOptions)
@@ -101,6 +102,11 @@ export function preprocessRegion(
       ...options,
       ...region.preprocessingOverrides,
     }
+  }
+
+  // Apply debug global overrides at maximum priority (wins over all template settings)
+  if (globalOverrides) {
+    options = { ...options, ...globalOverrides }
   }
 
   // Create working canvas
@@ -127,7 +133,9 @@ export function preprocessRegion(
   }
 
   // Convert to grayscale
-  processImageData(toGrayscale)
+  if (options.grayscale) {
+    processImageData(toGrayscale)
+  }
 
   // Enhance contrast
   if (options.enhanceContrast) {

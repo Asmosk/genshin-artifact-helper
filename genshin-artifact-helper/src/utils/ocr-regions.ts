@@ -9,6 +9,7 @@ import type {
   RegionOCROptions,
   RegionBasedOCRResult,
   OCRRegion,
+  PreprocessingOptions,
 } from '@/types/ocr-regions'
 import { OCR_WHITELISTS } from '@/types/ocr-regions'
 import type { OCRConfig } from './ocr'
@@ -16,7 +17,6 @@ import { getOCRWorker, DEFAULT_OCR_CONFIG } from './ocr'
 import { calculateAllRegionPositions } from './ocr-region-templates'
 import { cropCanvas, preprocessRegion, regionContainsText } from './region-extraction'
 import { detectStarsInFullScreen } from './star-detection'
-import type { PreprocessingOptions } from '@/stores/settings'
 
 /**
  * Process a single region with OCR
@@ -25,8 +25,9 @@ async function processRegion(
   sourceCanvas: HTMLCanvasElement,
   region: OCRRegion,
   position: { x: number; y: number; width: number; height: number },
-  basePreprocessingOptions: PreprocessingOptions,
+  layoutPreprocessingOptions: ArtifactRegionLayout['defaultPreprocessingOptions'],
   debug: boolean = false,
+  debugPreprocessingOverrides?: Partial<PreprocessingOptions>,
 ): Promise<RegionOCRResult> {
   const startTime = Date.now()
 
@@ -46,8 +47,8 @@ async function processRegion(
       }
     }
 
-    // 3. Apply region-specific preprocessing
-    const preprocessed = preprocessRegion(cropped, region, basePreprocessingOptions)
+    // 3. Apply preprocessing — layout defaults merged with any region-specific overrides, then debug overrides
+    const preprocessed = preprocessRegion(cropped, region, layoutPreprocessingOptions, debugPreprocessingOverrides)
 
     // 4. Configure OCR for this region
     const ocrConfig: OCRConfig = {
@@ -108,7 +109,6 @@ async function processRegionsParallel(
   sourceCanvas: HTMLCanvasElement,
   layout: ArtifactRegionLayout,
   positions: Map<string, { x: number; y: number; width: number; height: number }>,
-  basePreprocessingOptions: PreprocessingOptions,
   options: RegionOCROptions,
 ): Promise<RegionOCRResult[]> {
   const promises: Promise<RegionOCRResult>[] = []
@@ -125,7 +125,7 @@ async function processRegionsParallel(
       continue
     }
 
-    promises.push(processRegion(sourceCanvas, region, position, basePreprocessingOptions, options.debug ?? false))
+    promises.push(processRegion(sourceCanvas, region, position, layout.defaultPreprocessingOptions, options.debug ?? false, options.debugPreprocessingOverrides))
   }
 
   return Promise.all(promises)
@@ -138,7 +138,6 @@ async function processRegionsSequential(
   sourceCanvas: HTMLCanvasElement,
   layout: ArtifactRegionLayout,
   positions: Map<string, { x: number; y: number; width: number; height: number }>,
-  basePreprocessingOptions: PreprocessingOptions,
   options: RegionOCROptions,
 ): Promise<RegionOCRResult[]> {
   const results: RegionOCRResult[] = []
@@ -159,8 +158,9 @@ async function processRegionsSequential(
       sourceCanvas,
       region,
       position,
-      basePreprocessingOptions,
+      layout.defaultPreprocessingOptions,
       options.debug ?? false,
+      options.debugPreprocessingOverrides,
     )
     results.push(result)
   }
@@ -172,11 +172,13 @@ async function processRegionsSequential(
  * Main function: Recognize all regions in an artifact image.
  * Always runs star detection to determine the anchor point.
  * Throws if no stars are found.
+ *
+ * Preprocessing is controlled entirely by the layout's defaultPreprocessingOptions
+ * (with per-region overrides via OCRRegion.preprocessingOverrides).
  */
 export async function recognizeRegions(
   canvas: HTMLCanvasElement,
   layout: ArtifactRegionLayout,
-  basePreprocessingOptions: PreprocessingOptions,
   options: RegionOCROptions = {},
 ): Promise<RegionBasedOCRResult> {
   const startTime = Date.now()
@@ -197,10 +199,10 @@ export async function recognizeRegions(
     // Store star region bounds for UI visualization
     positions.set('starAnchor', fullScreenDetection.regionBounds)
 
-    // 3. Process regions
+    // 3. Process regions using layout-defined preprocessing as ground truth
     const regionResults = options.parallelProcessing
-      ? await processRegionsParallel(canvas, layout, positions, basePreprocessingOptions, options)
-      : await processRegionsSequential(canvas, layout, positions, basePreprocessingOptions, options)
+      ? await processRegionsParallel(canvas, layout, positions, options)
+      : await processRegionsSequential(canvas, layout, positions, options)
 
     // 4. Calculate overall confidence
     const validResults = regionResults.filter((r) => r.text.length > 0)

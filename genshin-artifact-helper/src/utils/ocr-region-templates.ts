@@ -4,8 +4,27 @@
  * Pixel position: x = anchorPx.x + region.x * imageWidth
  */
 
-import type { ArtifactRegionLayout, ScreenType, OCRRegion } from '@/types/ocr-regions'
+import type { ArtifactRegionLayout, ScreenType, OCRRegion, PreprocessingOptions } from '@/types/ocr-regions'
 import { REGION_NAMES } from '@/types/ocr-regions'
+
+/**
+ * Default preprocessing applied to every region unless overridden.
+ * This is the ground truth for all region preprocessing settings.
+ * Exported so the debug panel can initialize controls to matching values.
+ */
+export const DEFAULT_PREPROCESSING: PreprocessingOptions = {
+  grayscale: false,
+  enhanceContrast: false,
+  contrastFactor: 1.8,
+  denoise: false,
+  sharpen: false,
+  adaptive: false,
+  adaptiveBlockSize: 11,
+  upscale: false,
+  scaleFactor: 2,
+  genshinOptimized: false,
+  backgroundThreshold: 160,
+}
 
 /**
  * Helper to create a region definition
@@ -42,6 +61,7 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
     width: 3440,
     height: 1440,
   },
+  defaultPreprocessingOptions: DEFAULT_PREPROCESSING,
 
   regions: {
     pieceName: createRegion(
@@ -60,11 +80,17 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       REGION_NAMES.LEVEL,
       -0.006, 0.046, 0.028, 0.036,
       'mixed',
-      { whitelist: '+0123456789' },
+      {
+        whitelist: '+0123456789',
+        preprocessingOverrides: {
+          genshinOptimized: true,
+          backgroundThreshold: 230,
+        }
+      },
     ),
 
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
-      -0.008, -0.100, 0.119, 0.033,
+      -0.008, -0.100, 0.104, 0.033,
       'text',
       { whitelist: 'ATKDEFCRImgnyhlsBouP ' },
     ),
@@ -75,13 +101,48 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       whitelist: '0123456789.%'
     }),
 
-    substat1: createRegion(REGION_NAMES.SUBSTAT_1, 0.004, 0.092, 0.162, 0.04, 'mixed'),
-    substat2: createRegion(REGION_NAMES.SUBSTAT_2, 0.004, 0.127, 0.162, 0.04, 'mixed'),
-    substat3: createRegion(REGION_NAMES.SUBSTAT_3, 0.004, 0.163, 0.162, 0.04, 'mixed'),
-    substat4: createRegion(REGION_NAMES.SUBSTAT_4, 0.004, 0.199, 0.162, 0.046, 'mixed', {
-      optional: true,
-      multiLine: true,
-    }),
+    substat1: createRegion(REGION_NAMES.SUBSTAT_1,
+      0.004, 0.092, 0.162, 0.04,
+      'mixed',
+      {
+        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      },
+    ),
+    substat2: createRegion(REGION_NAMES.SUBSTAT_2,
+      0.004, 0.127, 0.162, 0.04,
+      'mixed',
+      {
+        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      },
+    ),
+    substat3: createRegion(REGION_NAMES.SUBSTAT_3,
+      0.004, 0.163, 0.162, 0.04,
+      'mixed',
+      {
+        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      },
+    ),
+    substat4: createRegion(REGION_NAMES.SUBSTAT_4,
+      0.004, 0.199, 0.162, 0.046,
+      'mixed',
+      {
+        optional: true,
+        multiLine: true,
+        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      }
+    ),
   },
 }
 
@@ -96,6 +157,7 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     width: 3440,
     height: 1440,
   },
+  defaultPreprocessingOptions: DEFAULT_PREPROCESSING,
 
   regions: {
     pieceName: createRegion(
@@ -156,6 +218,7 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
     width: 3440,
     height: 1440,
   },
+  defaultPreprocessingOptions: DEFAULT_PREPROCESSING,
 
   regions: {
     pieceName: createRegion(

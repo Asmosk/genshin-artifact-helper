@@ -4,14 +4,14 @@ import { useCaptureStore } from '@/stores/capture'
 import { useSettingsStore } from '@/stores/settings'
 import { useArtifactStore } from '@/stores/artifact'
 import { useOCRStore } from '@/stores/ocr'
-import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
+import { getRegionTemplate, calculateAllRegionPositions, DEFAULT_PREPROCESSING } from '@/utils/ocr-region-templates'
 import RegionSelector from '@/components/RegionSelector.vue'
 import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
 import OCRResults from '@/components/OCRResults.vue'
 import OCRRegionOffsetSetup from '@/components/OCRRegionOffsetSetup.vue'
 import OCRRegionPreviews from '@/components/OCRRegionPreviews.vue'
 import type { CaptureRegion } from '@/utils/capture'
-import type { ArtifactRegionLayout, ScreenType } from '@/types/ocr-regions'
+import type { ArtifactRegionLayout, ScreenType, PreprocessingOptions } from '@/types/ocr-regions'
 import {
   debugDetectStars,
   defaultStarDetectionSettings,
@@ -37,6 +37,22 @@ const debugShowOCRRegions = ref(false)
 const debugShowStarDetection = ref(false)
 const debugStarData = ref<StarDetectionDebugData | null>(null)
 const starSettings = ref<StarDetectionSettings>({ ...defaultStarDetectionSettings })
+
+// Debug preprocessing overrides state
+const debugPreprocessingEnabled = ref(false)
+const debugPreprocessingOptions = ref<PreprocessingOptions>({ ...DEFAULT_PREPROCESSING })
+
+let preprocessDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  [debugPreprocessingEnabled, debugPreprocessingOptions],
+  () => {
+    if (!hasImage.value) return
+    if (preprocessDebounceTimer) clearTimeout(preprocessDebounceTimer)
+    preprocessDebounceTimer = setTimeout(() => { sendToOCR() }, 400)
+  },
+  { deep: true },
+)
 
 // OCR Region Offset Setup state
 const showRegionOffsetSetup = ref(false)
@@ -153,6 +169,16 @@ watch(
     redrawPreview()
   },
   { deep: true },
+)
+
+watch(
+  () => captureStore.capturedImage,
+  async (newImage) => {
+    if (newImage) {
+      await nextTick()
+      ocrStore.detectArtifactDescription(newImage.original)
+    }
+  },
 )
 
 function drawOCRRegions(
@@ -413,8 +439,10 @@ async function sendToOCR(): Promise<void> {
     // Use preprocessed image if available, otherwise original
     const imageToProcess = captureStore.capturedImage.preprocessed ?? captureStore.capturedImage.original
 
+    const overrides = debugPreprocessingEnabled.value ? debugPreprocessingOptions.value : undefined
+
     // Use processImageAuto which automatically selects region-based or full-image OCR
-    await ocrStore.processImageAuto(imageToProcess)
+    await ocrStore.processImageAuto(imageToProcess, overrides)
   } catch (error) {
     console.error('OCR processing failed:', error)
     alert('OCR processing failed. See console for details.')
@@ -725,6 +753,60 @@ async function sendToOCR(): Promise<void> {
               <div class="star-setting-row">
                 <label>Match Threshold <span>{{ starSettings.matchThreshold }}</span></label>
                 <input type="range" min="1" max="20" step="1" v-model.number="starSettings.matchThreshold" />
+              </div>
+            </div>
+            <div class="preproc-override-panel">
+              <div class="preproc-override-header">
+                <span>OCR Region Preprocessing Overrides</span>
+                <div class="preproc-override-header-controls">
+                  <label>
+                    <input type="checkbox" v-model="debugPreprocessingEnabled" />
+                    Enable
+                  </label>
+                  <button
+                    class="btn btn-small"
+                    @click="debugPreprocessingOptions = { ...DEFAULT_PREPROCESSING }"
+                  >Reset</button>
+                </div>
+              </div>
+              <div v-if="debugPreprocessingEnabled" class="preproc-override-controls">
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.grayscale" /> grayscale</label>
+                </div>
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.enhanceContrast" /> enhanceContrast</label>
+                </div>
+                <div class="preproc-slider-row">
+                  <label>contrastFactor <span>{{ debugPreprocessingOptions.contrastFactor.toFixed(1) }}</span></label>
+                  <input type="range" min="1.0" max="3.0" step="0.1" v-model.number="debugPreprocessingOptions.contrastFactor" />
+                </div>
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.denoise" /> denoise</label>
+                </div>
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.sharpen" /> sharpen</label>
+                </div>
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.adaptive" /> adaptive</label>
+                </div>
+                <div class="preproc-slider-row">
+                  <label>adaptiveBlockSize <span>{{ debugPreprocessingOptions.adaptiveBlockSize }}</span></label>
+                  <input type="range" min="7" max="21" step="2" v-model.number="debugPreprocessingOptions.adaptiveBlockSize" />
+                </div>
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.upscale" /> upscale</label>
+                </div>
+                <div class="preproc-slider-row">
+                  <label>scaleFactor <span>{{ debugPreprocessingOptions.scaleFactor }}</span></label>
+                  <input type="range" min="1" max="4" step="1" v-model.number="debugPreprocessingOptions.scaleFactor" />
+                </div>
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.genshinOptimized" /> genshinOptimized</label>
+                </div>
+                <div class="preproc-slider-row">
+                  <label>backgroundThreshold <span>{{ debugPreprocessingOptions.backgroundThreshold }}</span></label>
+                  <input type="range" min="0" max="255" step="5" v-model.number="debugPreprocessingOptions.backgroundThreshold" />
+                </div>
               </div>
             </div>
           </div>
@@ -1301,6 +1383,87 @@ async function sendToOCR(): Promise<void> {
 .star-setting-row input[type='range'] {
   width: 100%;
   accent-color: #ffcc32;
+  cursor: pointer;
+}
+
+.preproc-override-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  background: #1a1a1a;
+  border-radius: 4px;
+  border: 1px solid #2200aa;
+}
+
+.preproc-override-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #aaaaff;
+  font-weight: bold;
+  font-family: monospace;
+  margin-bottom: 0.25rem;
+}
+
+.preproc-override-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preproc-override-header-controls label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: #aaa;
+  cursor: pointer;
+}
+
+.preproc-override-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.preproc-bool-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #aaa;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+.preproc-bool-row input[type='checkbox'] {
+  accent-color: #aaaaff;
+}
+
+.preproc-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-left: 0.5rem;
+}
+
+.preproc-slider-row label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #aaa;
+  font-family: monospace;
+}
+
+.preproc-slider-row label span {
+  color: #aaaaff;
+}
+
+.preproc-slider-row input[type='range'] {
+  width: 100%;
+  accent-color: #aaaaff;
   cursor: pointer;
 }
 </style>

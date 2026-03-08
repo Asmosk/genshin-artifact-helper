@@ -5,6 +5,8 @@
 
 import type { PreprocessingOptions } from '@/stores/settings'
 
+export type { PreprocessingOptions }
+
 /**
  * Game screen types where artifacts can be viewed
  */
@@ -95,6 +97,9 @@ export interface ArtifactRegionLayout {
     substat4: OCRRegion // can be "Unlocked" state
   }
 
+  /** Default preprocessing applied to every region in this layout (ground truth — defined in ocr-region-templates.ts) */
+  defaultPreprocessingOptions: PreprocessingOptions
+
   /** Whether this is a custom user-defined layout */
   custom?: boolean
 }
@@ -159,6 +164,9 @@ export interface RegionOCROptions {
 
   /** Enable debug mode (saves intermediate images) */
   debug?: boolean
+
+  /** Debug-only: applied at maximum priority, overrides all template settings */
+  debugPreprocessingOverrides?: Partial<PreprocessingOptions>
 }
 
 /**

@@ -8,7 +8,7 @@ import { getOCRWorker, terminateGlobalWorker, type OCRProgressCallback } from '@
 import { parseArtifact, parseArtifactFromRegions } from '@/utils/parsing'
 import { preprocessForOCR } from '@/utils/preprocessing'
 import type { OCRResult } from '@/types/artifact'
-import type { ScreenType, ArtifactRegionLayout, Rectangle, RegionOCRResult } from '@/types/ocr-regions'
+import type { ScreenType, ArtifactRegionLayout, Rectangle, RegionOCRResult, PreprocessingOptions } from '@/types/ocr-regions'
 import { recognizeRegions } from '@/utils/ocr-regions'
 import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
 import { detectStarsInFullScreen } from '@/utils/star-detection'
@@ -180,6 +180,7 @@ export const useOCRStore = defineStore('ocr', () => {
   async function processImageWithRegions(
     canvas: HTMLCanvasElement,
     screenType?: ScreenType,
+    debugPreprocessingOverrides?: Partial<PreprocessingOptions>,
   ): Promise<OCRResult> {
     const startTime = Date.now()
 
@@ -229,11 +230,11 @@ export const useOCRStore = defineStore('ocr', () => {
       const regionResult = await recognizeRegions(
         canvas,
         layout,
-        settingsStore.captureSettings.preprocessingOptions,
         {
           parallelProcessing: settingsStore.ocrSettings.regions.parallelProcessing,
           skipOptional: false,
           debug: false,
+          debugPreprocessingOverrides,
         },
       )
 
@@ -279,11 +280,14 @@ export const useOCRStore = defineStore('ocr', () => {
    * Process image with automatic method selection
    * Uses region-based OCR if enabled, otherwise falls back to full-image
    */
-  async function processImageAuto(canvas: HTMLCanvasElement): Promise<OCRResult> {
+  async function processImageAuto(
+    canvas: HTMLCanvasElement,
+    debugPreprocessingOverrides?: Partial<PreprocessingOptions>,
+  ): Promise<OCRResult> {
     const settingsStore = useSettingsStore()
 
     if (settingsStore.ocrSettings.regions.enabled) {
-      return processImageWithRegions(canvas)
+      return processImageWithRegions(canvas, undefined, debugPreprocessingOverrides)
     } else {
       return processImage(canvas, { preprocess: true })
     }
