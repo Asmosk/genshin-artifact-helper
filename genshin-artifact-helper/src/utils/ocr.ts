@@ -22,7 +22,7 @@ export interface OCRConfig {
  * Default OCR configuration for Genshin artifacts
  */
 export const DEFAULT_OCR_CONFIG: OCRConfig = {
-  lang: 'eng',
+  lang: 'genshin',
   psm: 6, // Single uniform block of text
   // Whitelist: numbers, decimal, percent, plus, space, and common artifact stat characters
   whitelist: '0123456789.%+ ATKHPDEFCRITRateDmgElementalMasteryEnergyRchgFlowerPlumeSndsGobletCirc',
@@ -59,7 +59,10 @@ export class OCRWorker {
 
     try {
       // Create worker with OEM in constructor (can't be changed after init)
-      const workerOptions: any = {}
+      const workerOptions: any = {
+        langPath: '/tessdata',
+        gzip: false,
+      }
       if (onProgress) {
         workerOptions.logger = (m: any) => {
           onProgress({
