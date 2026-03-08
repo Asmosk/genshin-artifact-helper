@@ -378,7 +378,7 @@ export function parseArtifact(ocrText: string): OCRResult {
  * Parse artifact from region-based OCR results
  * More accurate than full-text parsing because each field is extracted from a specific region
  */
-export function parseArtifactFromRegions(regionResults: RegionOCRResult[]): OCRResult {
+export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starCount?: 3 | 4 | 5): OCRResult {
   const regions = getRegionResultsMap(regionResults)
   const errors: string[] = []
 
@@ -406,12 +406,8 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[]): OCRR
     errors.push(`Could not parse level from: "${levelText}"`)
   }
 
-  // Parse rarity (from text or star count will be handled separately)
-  const rarityText = regions.get('rarity')?.text || ''
-  const rarity = parseRarity(rarityText)
-  if (!rarity && rarityText) {
-    errors.push(`Could not parse rarity from: "${rarityText}"`)
-  }
+  // Rarity comes directly from star detection result
+  const rarity = starCount ?? undefined
 
   // Parse main stat
   const mainStatNameText = regions.get('mainStatName')?.text || ''

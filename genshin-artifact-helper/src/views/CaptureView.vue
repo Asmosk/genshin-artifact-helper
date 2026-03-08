@@ -4,7 +4,7 @@ import { useCaptureStore } from '@/stores/capture'
 import { useSettingsStore } from '@/stores/settings'
 import { useArtifactStore } from '@/stores/artifact'
 import { useOCRStore } from '@/stores/ocr'
-import { getRegionTemplate } from '@/utils/ocr-region-templates'
+import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
 import RegionSelector from '@/components/RegionSelector.vue'
 import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
 import OCRResults from '@/components/OCRResults.vue'
@@ -145,15 +145,8 @@ function drawOCRRegions(
   const detectedPositions = ocrStore.detectedRegionPositions
 
   if (detectedPositions) {
-    // Draw rarity region in orange from detected bounds
-    const rarityBounds = ocrStore.detectedRarityBounds
-    if (rarityBounds) {
-      drawRegionPixels(rarityBounds.x, rarityBounds.y, rarityBounds.width, rarityBounds.height, 'rarity', '#ff9900')
-    }
-
-    // Draw all other regions in orange from computed pixel positions
+    // Draw all OCR regions in orange from computed pixel positions (skip starAnchor — shown by drawStarDetectionData)
     for (const [name, region] of Object.entries(layout.regions)) {
-      if ((region as any) === layout.anchorRegion) continue
       const pos = detectedPositions.get((region as any).name)
       if (pos) {
         const label = name.replace(/([A-Z])/g, ' $1').toLowerCase()
@@ -161,16 +154,15 @@ function drawOCRRegions(
       }
     }
   } else {
-    // No detection yet — draw all regions from template percentages in green
-    if (layout.anchorRegion) {
-      const r = layout.anchorRegion
-      drawRegionPixels(r.x * width, r.y * height, r.width * width, r.height * height, 'rarity', '#00ff00')
-    }
+    // No detection yet — draw all regions from template anchorPoint in green
+    const anchorPx = { x: layout.anchorPoint.x * width, y: layout.anchorPoint.y * height }
+    const templatePositions = calculateAllRegionPositions(layout, width, height, anchorPx)
     for (const [name, region] of Object.entries(layout.regions)) {
-      if ((region as any) === layout.anchorRegion) continue
-      const r = region as any
-      const label = name.replace(/([A-Z])/g, ' $1').toLowerCase()
-      drawRegionPixels(r.x * width, r.y * height, r.width * width, r.height * height, label, '#00ff00')
+      const pos = templatePositions.get((region as any).name)
+      if (pos) {
+        const label = name.replace(/([A-Z])/g, ' $1').toLowerCase()
+        drawRegionPixels(pos.x, pos.y, pos.width, pos.height, label, '#00ff00')
+      }
     }
   }
 }

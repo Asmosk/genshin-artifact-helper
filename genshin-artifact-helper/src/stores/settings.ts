@@ -55,8 +55,6 @@ export interface OCRRegionSettings {
   enabled: boolean
   /** Screen type ('auto' | 'character' | 'inventory' | 'rewards') */
   screenType: 'auto' | 'character' | 'inventory' | 'rewards'
-  /** Use star detection for anchor positioning */
-  useStarAnchor: boolean
   /** Process regions in parallel for better performance */
   parallelProcessing: boolean
 }
@@ -113,7 +111,6 @@ export const useSettingsStore = defineStore('settings', () => {
     regions: {
       enabled: true, // Enable region-based OCR by default
       screenType: 'auto', // Auto-detect screen type
-      useStarAnchor: true, // Use star detection to auto-position OCR regions
       parallelProcessing: true, // Process regions in parallel for speed
     },
   })
@@ -210,11 +207,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function setOCRScreenType(screenType: OCRRegionSettings['screenType']) {
     ocrSettings.value.regions.screenType = screenType
-    saveSettings()
-  }
-
-  function toggleStarAnchor() {
-    ocrSettings.value.regions.useStarAnchor = !ocrSettings.value.regions.useStarAnchor
     saveSettings()
   }
 
@@ -428,7 +420,6 @@ export const useSettingsStore = defineStore('settings', () => {
     toggleAutoCorrect,
     toggleRegionBasedOCR,
     setOCRScreenType,
-    toggleStarAnchor,
     toggleParallelProcessing,
     updateRegionSettings,
 

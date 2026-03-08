@@ -13,7 +13,7 @@ export type ScreenType = 'character' | 'inventory' | 'rewards'
 /**
  * OCR processing mode for a region
  */
-export type OCRMode = 'text' | 'number' | 'mixed' | 'stars'
+export type OCRMode = 'text' | 'number' | 'mixed'
 
 /**
  * Rectangle coordinates
@@ -79,16 +79,15 @@ export interface ArtifactRegionLayout {
     height: number
   }
 
-  /** Special anchor region (rarity stars) for auto-positioning */
-  anchorRegion: OCRRegion
+  /** Expected center of first (leftmost) star in screen %, used as anchor for all region offsets */
+  anchorPoint: { x: number; y: number }
 
-  /** All text regions to process */
+  /** All text regions to process (coordinates are offsets from anchorPoint in screen %) */
   regions: {
     pieceName: OCRRegion
     slotName: OCRRegion
     mainStatName: OCRRegion
     mainStatValue: OCRRegion
-    rarity: OCRRegion // special: detect star icons
     level: OCRRegion
     substat1: OCRRegion // includes name + value
     substat2: OCRRegion
@@ -164,9 +163,6 @@ export interface ScreenDetectionResult {
  * Options for region-based OCR processing
  */
 export interface RegionOCROptions {
-  /** Use star detection for anchoring regions */
-  useStarAnchor?: boolean
-
   /** Process regions in parallel for better performance */
   parallelProcessing?: boolean
 
@@ -213,7 +209,6 @@ export const OCR_WHITELISTS: Record<OCRMode, string> = {
   number: '0123456789.+', // Numbers and decimal point only
   text: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ,\'-.', // Letters and basic punctuation
   mixed: '0123456789.%+ ATKHPDEFCRITRateDmgElementalMasteryEnergyRchg', // Stats with values
-  stars: '★⭐*', // For star detection (though we'll use image processing)
 }
 
 /**
@@ -224,7 +219,6 @@ export const REGION_NAMES = {
   SLOT_NAME: 'slotName',
   MAIN_STAT_NAME: 'mainStatName',
   MAIN_STAT_VALUE: 'mainStatValue',
-  RARITY: 'rarity',
   LEVEL: 'level',
   SUBSTAT_1: 'substat1',
   SUBSTAT_2: 'substat2',

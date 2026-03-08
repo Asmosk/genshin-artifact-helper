@@ -128,18 +128,6 @@ export function getPreprocessingForMode(
         backgroundThreshold: 170,
       }
 
-    case 'stars':
-      // Stars: minimal preprocessing (use image analysis instead)
-      return {
-        ...options,
-        enhanceContrast: false,
-        denoise: false,
-        sharpen: false,
-        adaptive: false,
-        upscale: false,
-        genshinOptimized: false,
-      }
-
     default:
       return options
   }
