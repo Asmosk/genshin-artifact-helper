@@ -8,9 +8,10 @@ import { getOCRWorker, terminateGlobalWorker, type OCRProgressCallback } from '@
 import { parseArtifact, parseArtifactFromRegions } from '@/utils/parsing'
 import { preprocessForOCR } from '@/utils/preprocessing'
 import type { OCRResult } from '@/types/artifact'
-import type { ScreenType, ArtifactRegionLayout } from '@/types/ocr-regions'
+import type { ScreenType, ArtifactRegionLayout, Rectangle } from '@/types/ocr-regions'
 import { recognizeRegions } from '@/utils/ocr-regions'
-import { getRegionTemplate } from '@/utils/ocr-region-templates'
+import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
+import { detectStarsInFullScreen } from '@/utils/star-detection'
 import { useSettingsStore } from './settings'
 
 /**
@@ -27,6 +28,8 @@ export const useOCRStore = defineStore('ocr', () => {
   const activeLayout = ref<ArtifactRegionLayout | null>(null)
   const error = ref<string | null>(null)
   const processingTime = ref(0) // milliseconds
+  const detectedRarityBounds = ref<Rectangle | null>(null)
+  const detectedRegionPositions = ref<Map<string, Rectangle> | null>(null)
 
   // Getters
   const isProcessing = computed(() => state.value === 'processing' || state.value === 'initializing')
@@ -152,6 +155,8 @@ export const useOCRStore = defineStore('ocr', () => {
     progressStatus.value = ''
     processingTime.value = 0
     state.value = 'idle'
+    detectedRarityBounds.value = null
+    detectedRegionPositions.value = null
   }
 
   /**
@@ -217,13 +222,17 @@ export const useOCRStore = defineStore('ocr', () => {
       progress.value = 50
       progressStatus.value = 'Processing regions...'
 
-      // Process all regions
+      // Process all regions — skip star detection if already done for this image
+      const alreadyDetected = detectedRegionPositions.value !== null
+      if (alreadyDetected) {
+        console.log('[OCR] Skipping star detection — already completed for this image')
+      }
       const regionResult = await recognizeRegions(
         canvas,
         layout,
         settingsStore.captureSettings.preprocessingOptions,
         {
-          useStarAnchor: settingsStore.ocrSettings.regions.useStarAnchor,
+          useStarAnchor: alreadyDetected ? false : settingsStore.ocrSettings.regions.useStarAnchor,
           parallelProcessing: settingsStore.ocrSettings.regions.parallelProcessing,
           skipOptional: false,
           debug: false,
@@ -317,6 +326,62 @@ export const useOCRStore = defineStore('ocr', () => {
     clearResult()
   }
 
+  /**
+   * Run star detection on the provided canvas and update detectedRarityBounds
+   * and detectedRegionPositions for all OCR regions.
+   * Logs detection attempt and result to console.
+   */
+  function detectArtifactDescription(canvas: HTMLCanvasElement): void {
+    const settingsStore = useSettingsStore()
+    console.log('[Star Detection] Attempting to detect rarity stars...', {
+      width: canvas.width,
+      height: canvas.height,
+    })
+
+    const detection = detectStarsInFullScreen(canvas, canvas.height)
+
+    if (detection) {
+      console.log('[Star Detection] Stars detected:', {
+        count: detection.stars.count,
+        position: detection.stars.position,
+        confidence: detection.stars.confidence,
+      })
+      console.log('[Star Detection] Rarity region bounds (px):', detection.regionBounds)
+
+      // Get the layout to compute all other region positions
+      const screenType = settingsStore.ocrSettings.regions.screenType === 'auto'
+        ? 'inventory'
+        : settingsStore.ocrSettings.regions.screenType as any
+      const layout = getRegionTemplate(screenType)
+
+      // Compute anchor delta: how far detected stars are from where template expected them
+      const anchorTemplate = layout.anchorRegion
+      const expectedCenterX = (anchorTemplate.x + anchorTemplate.width / 2) * canvas.width
+      const expectedCenterY = (anchorTemplate.y + anchorTemplate.height / 2) * canvas.height
+      const anchorOffset = {
+        x: detection.stars.position.x - expectedCenterX,
+        y: detection.stars.position.y - expectedCenterY,
+      }
+      console.log('[Star Detection] Anchor offset (delta px):', anchorOffset)
+
+      // Calculate all region positions shifted by the anchor delta
+      const positions = calculateAllRegionPositions(layout, canvas.width, canvas.height, anchorOffset)
+      // Override rarity with the precisely detected bounds
+      positions.set(anchorTemplate.name, detection.regionBounds)
+
+      console.log('[Star Detection] Computed region positions:', Object.fromEntries(positions))
+
+      detectedRarityBounds.value = detection.regionBounds
+      detectedRegionPositions.value = positions
+      // Make the layout available so the preview can draw region boxes
+      activeLayout.value = layout
+    } else {
+      console.log('[Star Detection] No stars found in image')
+      detectedRarityBounds.value = null
+      detectedRegionPositions.value = null
+    }
+  }
+
   return {
     // State
     state,
@@ -325,6 +390,8 @@ export const useOCRStore = defineStore('ocr', () => {
     result,
     error,
     processingTime,
+    detectedRarityBounds,
+    detectedRegionPositions,
 
     // Getters
     isProcessing,
@@ -343,5 +410,6 @@ export const useOCRStore = defineStore('ocr', () => {
     retry,
     acceptResult,
     rejectResult,
+    detectArtifactDescription,
   }
 })

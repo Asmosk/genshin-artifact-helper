@@ -16,6 +16,7 @@ import type { OCRConfig } from './ocr'
 import { getOCRWorker, DEFAULT_OCR_CONFIG } from './ocr'
 import { calculateAllRegionPositions } from './ocr-region-templates'
 import { cropCanvas, preprocessRegion, regionContainsText } from './region-extraction'
+import { detectStars, detectStarsInFullScreen } from './star-detection'
 import type { PreprocessingOptions } from '@/stores/settings'
 
 /**
@@ -179,29 +180,59 @@ export async function recognizeRegions(
   const warnings: string[] = []
 
   try {
+    // 2. Calculate pixel positions for all regions (INITIAL ESTIMATE)
+    const positions = calculateAllRegionPositions(
+      layout,
+      canvas.width,
+      canvas.height,
+    )
+
     // 1. Optionally detect stars for anchoring
     let starDetection: StarDetectionResult | undefined
     let anchorOffset: { x: number; y: number } | undefined
 
     if (options.useStarAnchor && layout.anchorRegion) {
       try {
-        // TODO: Implement star detection
-        // For now, skip anchoring
-        // starDetection = await detectStars(canvas, layout.anchorRegion)
-        // anchorOffset = { x: starDetection.position.x, y: starDetection.position.y }
-        warnings.push('Star anchor detection not yet implemented')
+        // Detect stars in the full screen capture
+        const fullScreenDetection = detectStarsInFullScreen(canvas, canvas.height)
+
+        if (fullScreenDetection) {
+          starDetection = fullScreenDetection.stars
+
+          // Calculate the expected star center based on the anchor region template
+          const anchorTemplate = layout.anchorRegion
+          const expectedCenterX = (anchorTemplate.x + anchorTemplate.width / 2) * canvas.width
+          const expectedCenterY = (anchorTemplate.y + anchorTemplate.height / 2) * canvas.height
+
+          // anchorOffset is the delta between actual and expected star position
+          anchorOffset = {
+            x: starDetection.position.x - expectedCenterX,
+            y: starDetection.position.y - expectedCenterY,
+          }
+
+          // Update the rarity region position in the positions map with the detected bounds
+          positions.set(layout.anchorRegion.name, fullScreenDetection.regionBounds)
+
+          // Recalculate positions with the delta offset
+          const newPositions = calculateAllRegionPositions(
+            layout,
+            canvas.width,
+            canvas.height,
+            anchorOffset,
+          )
+          // Update positions map (rarity already set above, skip it)
+          for (const [name, pos] of newPositions.entries()) {
+            if (name !== layout.anchorRegion.name) {
+              positions.set(name, pos)
+            }
+          }
+        } else {
+          warnings.push('Star anchor not found in full screen capture')
+        }
       } catch (error) {
         warnings.push(`Star detection failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       }
     }
-
-    // 2. Calculate pixel positions for all regions
-    const positions = calculateAllRegionPositions(
-      layout,
-      canvas.width,
-      canvas.height,
-      anchorOffset,
-    )
 
     // 3. Process regions
     const regionResults = options.parallelProcessing

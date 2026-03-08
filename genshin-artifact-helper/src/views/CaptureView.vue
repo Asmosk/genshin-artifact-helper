@@ -61,28 +61,29 @@ const activeLayout = computed(() => {
   return null
 })
 
+function redrawPreview(): void {
+  const image = captureStore.capturedImage
+  const layout = activeLayout.value
+  if (!image || !previewCanvasRef.value) return
+
+  const ctx = previewCanvasRef.value.getContext('2d')
+  if (!ctx) return
+
+  const displayCanvas = image.preprocessed ?? image.original
+  previewCanvasRef.value.width = displayCanvas.width
+  previewCanvasRef.value.height = displayCanvas.height
+  ctx.drawImage(displayCanvas, 0, 0)
+
+  if (showOCRRegions.value && layout) {
+    drawOCRRegions(ctx, layout, previewCanvasRef.value.width, previewCanvasRef.value.height)
+  }
+}
+
 watch(
-  [() => captureStore.capturedImage, activeLayout, showOCRRegions],
-  async ([image, layout]) => {
-    if (image) {
-      // Wait for DOM to update (canvas element to be rendered)
-      await nextTick()
-
-      if (previewCanvasRef.value) {
-        const ctx = previewCanvasRef.value.getContext('2d')
-        if (ctx) {
-          const displayCanvas = image.preprocessed ?? image.original
-          previewCanvasRef.value.width = displayCanvas.width
-          previewCanvasRef.value.height = displayCanvas.height
-          ctx.drawImage(displayCanvas, 0, 0)
-
-          // Draw OCR regions if enabled and available
-          if (showOCRRegions.value && layout) {
-            drawOCRRegions(ctx, layout, previewCanvasRef.value.width, previewCanvasRef.value.height)
-          }
-        }
-      }
-    }
+  [() => captureStore.capturedImage, activeLayout, showOCRRegions, () => ocrStore.detectedRarityBounds],
+  async () => {
+    await nextTick()
+    redrawPreview()
   },
 )
 
@@ -92,44 +93,53 @@ function drawOCRRegions(
   width: number,
   height: number,
 ): void {
-  ctx.strokeStyle = '#00ff00'
   ctx.lineWidth = 2
-  ctx.fillStyle = '#00ff00'
   ctx.font = 'bold 12px sans-serif'
   ctx.textBaseline = 'bottom'
 
-  const drawRegion = (region: any, name: string) => {
-    const rx = region.x * width
-    const ry = region.y * height
-    const rw = region.width * width
-    const rh = region.height * height
+  const drawRegionPixels = (x: number, y: number, w: number, h: number, label: string, color: string) => {
+    ctx.strokeStyle = color
+    ctx.fillStyle = color
+    ctx.strokeRect(x, y, w, h)
 
-    // Draw rectangle
-    ctx.strokeRect(rx, ry, rw, rh)
-
-    // Draw label background for better readability
-    const label = name.replace(/([A-Z])/g, ' $1').toLowerCase()
     const textWidth = ctx.measureText(label).width
     ctx.globalAlpha = 0.7
-    ctx.fillRect(rx, ry - 18, textWidth + 10, 18)
+    ctx.fillRect(x, y - 18, textWidth + 10, 18)
     ctx.globalAlpha = 1.0
-
-    // Draw label text
     ctx.fillStyle = '#000'
-    ctx.fillText(label, rx + 5, ry - 2)
-    ctx.fillStyle = '#00ff00'
+    ctx.fillText(label, x + 5, y - 2)
   }
 
-  // Draw anchor region if it exists
-  if (layout.anchorRegion) {
-    drawRegion(layout.anchorRegion, 'anchor')
-  }
+  const detectedPositions = ocrStore.detectedRegionPositions
 
-  // Draw all other regions
-  for (const [name, region] of Object.entries(layout.regions)) {
-    // Skip if it's the same as anchor (avoid double drawing)
-    if (region === layout.anchorRegion) continue
-    drawRegion(region as any, name)
+  if (detectedPositions) {
+    // Draw rarity region in orange from detected bounds
+    const rarityBounds = ocrStore.detectedRarityBounds
+    if (rarityBounds) {
+      drawRegionPixels(rarityBounds.x, rarityBounds.y, rarityBounds.width, rarityBounds.height, 'rarity', '#ff9900')
+    }
+
+    // Draw all other regions in orange from computed pixel positions
+    for (const [name, region] of Object.entries(layout.regions)) {
+      if ((region as any) === layout.anchorRegion) continue
+      const pos = detectedPositions.get((region as any).name)
+      if (pos) {
+        const label = name.replace(/([A-Z])/g, ' $1').toLowerCase()
+        drawRegionPixels(pos.x, pos.y, pos.width, pos.height, label, '#ff9900')
+      }
+    }
+  } else {
+    // No detection yet — draw all regions from template percentages in green
+    if (layout.anchorRegion) {
+      const r = layout.anchorRegion
+      drawRegionPixels(r.x * width, r.y * height, r.width * width, r.height * height, 'rarity', '#00ff00')
+    }
+    for (const [name, region] of Object.entries(layout.regions)) {
+      if ((region as any) === layout.anchorRegion) continue
+      const r = region as any
+      const label = name.replace(/([A-Z])/g, ' $1').toLowerCase()
+      drawRegionPixels(r.x * width, r.y * height, r.width * width, r.height * height, label, '#00ff00')
+    }
   }
 }
 
@@ -245,6 +255,11 @@ function adjustCaptureRate(delta: number): void {
 function clearImage(): void {
   captureStore.clearImage()
   ocrStore.clearResult()
+}
+
+function detectArtifactDescription(): void {
+  if (!captureStore.capturedImage) return
+  ocrStore.detectArtifactDescription(captureStore.capturedImage.original)
 }
 
 async function sendToOCR(): Promise<void> {
@@ -485,6 +500,13 @@ async function sendToOCR(): Promise<void> {
           <div v-if="hasImage" class="preview-actions">
             <button class="btn btn-small btn-secondary" @click="clearImage">
               Clear
+            </button>
+            <button
+              class="btn btn-secondary"
+              :disabled="ocrStore.isProcessing"
+              @click="detectArtifactDescription"
+            >
+              Detect Artifact Description
             </button>
             <button
               class="btn btn-primary"

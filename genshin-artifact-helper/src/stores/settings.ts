@@ -113,7 +113,7 @@ export const useSettingsStore = defineStore('settings', () => {
     regions: {
       enabled: true, // Enable region-based OCR by default
       screenType: 'auto', // Auto-detect screen type
-      useStarAnchor: false, // Star detection not implemented yet
+      useStarAnchor: true, // Use star detection to auto-position OCR regions
       parallelProcessing: true, // Process regions in parallel for speed
     },
   })

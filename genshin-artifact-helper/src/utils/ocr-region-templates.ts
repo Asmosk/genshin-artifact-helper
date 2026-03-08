@@ -335,10 +335,10 @@ export function calculateRegionPosition(
   let x = Math.round(region.x * imageWidth)
   let y = Math.round(region.y * imageHeight)
 
-  // Apply anchor offset if provided
-  if (anchorOffset && region.anchorRegion) {
-    x += anchorOffset.x + (region.offsetX ?? 0)
-    y += anchorOffset.y + (region.offsetY ?? 0)
+  // Apply anchor delta offset to shift all regions when star position is known
+  if (anchorOffset) {
+    x += Math.round(anchorOffset.x)
+    y += Math.round(anchorOffset.y)
   }
 
   return {
