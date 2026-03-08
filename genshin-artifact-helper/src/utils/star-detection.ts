@@ -1,30 +1,42 @@
-﻿/**
+/**
  * Star detection utilities for Genshin Impact artifacts
  * Implements the grid-based pixel sampling and center confirmation algorithm
  */
 
 import type { StarDetectionResult, Rectangle } from '@/types/ocr-regions'
 
-/**
- * Constants for star detection based on the provided plan
- * All percentages are relative to screen height
- */
-const STAR_COLOR = { r: 0xff, g: 0xcc, b: 0x32 } // #ffcc32
-const COLOR_TOLERANCE = 30 // RGB distance tolerance
+export interface StarDetectionSettings {
+  starColorR: number
+  starColorG: number
+  starColorB: number
+  colorTolerance: number
+  gridSizePercent: number
+  starSizePercent: number
+  centerSquarePercent: number
+  starDistancePercent: number
+  matchThreshold: number
+}
 
-const GRID_SIZE_PERCENT = 0.0125 // 1.25% of screen height
-const STAR_SIZE_PERCENT = 0.025 // 2.5% of screen height
-const STAR_CENTER_SQUARE_PERCENT = 0.01 // 1% of screen height
-const STAR_DISTANCE_PERCENT = 0.03 // 3% of screen height
+export const defaultStarDetectionSettings: StarDetectionSettings = {
+  starColorR: 255,
+  starColorG: 204,
+  starColorB: 50,
+  colorTolerance: 10,
+  gridSizePercent: 0.0125,
+  starSizePercent: 0.025,
+  centerSquarePercent: 0.01,
+  starDistancePercent: 0.03,
+  matchThreshold: 8,
+}
 
 /**
  * Check if a color matches the star color within tolerance
  */
-function isStarColor(r: number, g: number, b: number): boolean {
+function isStarColor(r: number, g: number, b: number, settings: StarDetectionSettings): boolean {
   return (
-    Math.abs(r - STAR_COLOR.r) <= COLOR_TOLERANCE &&
-    Math.abs(g - STAR_COLOR.g) <= COLOR_TOLERANCE &&
-    Math.abs(b - STAR_COLOR.b) <= COLOR_TOLERANCE
+    Math.abs(r - settings.starColorR) <= settings.colorTolerance &&
+    Math.abs(g - settings.starColorG) <= settings.colorTolerance &&
+    Math.abs(b - settings.starColorB) <= settings.colorTolerance
   )
 }
 
@@ -37,8 +49,9 @@ function detectStarsInImageData(
   width: number,
   height: number,
   screenHeight: number,
+  settings: StarDetectionSettings,
 ): { center: { x: number; y: number }; count: number } | null {
-  const gridSize = Math.max(1, Math.round(screenHeight * GRID_SIZE_PERCENT))
+  const gridSize = Math.max(1, Math.round(screenHeight * settings.gridSizePercent))
 
   // 1. Grid-based sampling
   for (let y = 0; y < height; y += gridSize) {
@@ -55,7 +68,7 @@ function detectStarsInImageData(
           if (px >= width || py >= height) continue
 
           const idx = (py * width + px) * 4
-          if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0)) {
+          if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
             matchCount++
             if (firstMatch.x === -1) {
               firstMatch.x = px
@@ -66,12 +79,12 @@ function detectStarsInImageData(
       }
 
       // 3. If enough pixels match, consider this a possible match
-      if (matchCount >= 4) {
+      if (matchCount >= settings.matchThreshold) {
         // 4. Confirm match by finding star center
-        const center = findStarCenter(data, width, height, firstMatch.x, firstMatch.y)
+        const center = findStarCenter(data, width, height, firstMatch.x, firstMatch.y, settings)
         if (center) {
           // 5. Star found, count neighbors
-          const starCount = countNeighborStars(data, width, height, center.x, center.y, screenHeight)
+          const starCount = countNeighborStars(data, width, height, center.x, center.y, screenHeight, settings)
           return { center, count: starCount }
         }
       }
@@ -89,11 +102,13 @@ function detectStarsInImageData(
  *
  * @param canvas - The full game window capture canvas
  * @param screenHeight - Screen height to calculate absolute dimensions
+ * @param settings - Optional detection settings (defaults to defaultStarDetectionSettings)
  * @returns Object containing star detection result and region bounds, or null if not found
  */
 export function detectStarsInFullScreen(
   canvas: HTMLCanvasElement,
   screenHeight: number,
+  settings: StarDetectionSettings = defaultStarDetectionSettings,
 ): { stars: StarDetectionResult; regionBounds: Rectangle } | null {
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) return null
@@ -103,11 +118,11 @@ export function detectStarsInFullScreen(
   const imageData = ctx.getImageData(0, 0, width, height)
   const data = imageData.data
 
-  const detection = detectStarsInImageData(data, width, height, screenHeight)
+  const detection = detectStarsInImageData(data, width, height, screenHeight, settings)
   if (!detection) return null
 
-  const starSize = Math.round(screenHeight * STAR_SIZE_PERCENT)
-  const starDistance = Math.round(screenHeight * STAR_DISTANCE_PERCENT)
+  const starSize = Math.round(screenHeight * settings.starSizePercent)
+  const starDistance = Math.round(screenHeight * settings.starDistancePercent)
   const numStars = Math.max(3, Math.min(5, detection.count)) as 3 | 4 | 5
 
   // Calculate the rarity region bounds based on the detected stars
@@ -141,10 +156,12 @@ export function detectStarsInFullScreen(
  * Detect stars in a given canvas (usually the 'rarity' region)
  * @param canvas - The cropped rarity region canvas
  * @param screenHeight - Original screen height to calculate absolute dimensions
+ * @param settings - Optional detection settings (defaults to defaultStarDetectionSettings)
  */
 export function detectStars(
   canvas: HTMLCanvasElement,
   screenHeight: number,
+  settings: StarDetectionSettings = defaultStarDetectionSettings,
 ): StarDetectionResult | null {
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) return null
@@ -154,7 +171,7 @@ export function detectStars(
   const imageData = ctx.getImageData(0, 0, width, height)
   const data = imageData.data
 
-  const detection = detectStarsInImageData(data, width, height, screenHeight)
+  const detection = detectStarsInImageData(data, width, height, screenHeight, settings)
   if (!detection) return null
 
   return {
@@ -162,8 +179,8 @@ export function detectStars(
     position: { x: detection.center.x, y: detection.center.y },
     confidence: 0.9, // Heuristic confidence
     bounds: {
-      width: Math.round(screenHeight * STAR_SIZE_PERCENT),
-      height: Math.round(screenHeight * STAR_SIZE_PERCENT),
+      width: Math.round(screenHeight * settings.starSizePercent),
+      height: Math.round(screenHeight * settings.starSizePercent),
     },
   }
 }
@@ -177,10 +194,11 @@ function findStarCenter(
   height: number,
   startX: number,
   startY: number,
+  settings: StarDetectionSettings,
 ): { x: number; y: number } | null {
   // Sample neighboring pixels in straight lines
-  const horizontalLine = getLongestColorLine(data, width, height, startX, startY, true)
-  const verticalLine = getLongestColorLine(data, width, height, startX, startY, false)
+  const horizontalLine = getLongestColorLine(data, width, height, startX, startY, true, settings)
+  const verticalLine = getLongestColorLine(data, width, height, startX, startY, false, settings)
 
   const longestLine = horizontalLine.length > verticalLine.length ? horizontalLine : verticalLine
 
@@ -209,6 +227,7 @@ function getLongestColorLine(
   x: number,
   y: number,
   horizontal: boolean,
+  settings: StarDetectionSettings,
 ): { start: number; length: number } {
   let start = horizontal ? x : y
   const limit = horizontal ? width : height
@@ -218,7 +237,7 @@ function getLongestColorLine(
     const px = horizontal ? start - 1 : x
     const py = horizontal ? y : start - 1
     const idx = (py * width + px) * 4
-    if (!isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0)) break
+    if (!isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) break
     start--
   }
 
@@ -228,12 +247,97 @@ function getLongestColorLine(
     const px = horizontal ? end + 1 : x
     const py = horizontal ? y : end + 1
     const idx = (py * width + px) * 4
-    if (!isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0)) break
+    if (!isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) break
     end++
   }
 
   return { start, length: end - start + 1 }
 }
+
+// ─── Debug exports ────────────────────────────────────────────────────────────
+
+export interface StarDetectionDebugBlock {
+  x: number
+  y: number
+  size: number
+  matchCount: number
+  isMatch: boolean // matchCount >= matchThreshold (threshold for a candidate cell)
+}
+
+export interface StarDetectionDebugData {
+  gridSize: number
+  /** Only cells with at least one star-colored pixel are included */
+  blocks: StarDetectionDebugBlock[]
+  detectedCenter: { x: number; y: number } | null
+  starCount: number | null
+}
+
+/**
+ * Run the star-detection algorithm in full debug mode.
+ * Returns all grid blocks that contained at least one star-coloured pixel,
+ * plus the first confirmed star-centre and neighbour count.
+ */
+export function debugDetectStars(
+  canvas: HTMLCanvasElement,
+  screenHeight: number,
+  settings: StarDetectionSettings = defaultStarDetectionSettings,
+): StarDetectionDebugData {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return { gridSize: 0, blocks: [], detectedCenter: null, starCount: null }
+
+  const width = canvas.width
+  const height = canvas.height
+  const imageData = ctx.getImageData(0, 0, width, height)
+  const data = imageData.data
+  const gridSize = Math.max(1, Math.round(screenHeight * settings.gridSizePercent))
+  const step = Math.max(1, Math.floor(gridSize / 3))
+
+  const blocks: StarDetectionDebugBlock[] = []
+  let detectedCenter: { x: number; y: number } | null = null
+  let starCount: number | null = null
+
+  for (let y = 0; y < height; y += gridSize) {
+    for (let x = 0; x < width; x += gridSize) {
+      let matchCount = 0
+      const firstMatch = { x: -1, y: -1 }
+
+      for (let sy = 0; sy < gridSize; sy += step) {
+        for (let sx = 0; sx < gridSize; sx += step) {
+          const px = x + sx
+          const py = y + sy
+          if (px >= width || py >= height) continue
+          const idx = (py * width + px) * 4
+          if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
+            matchCount++
+            if (firstMatch.x === -1) {
+              firstMatch.x = px
+              firstMatch.y = py
+            }
+          }
+        }
+      }
+
+      const isMatch = matchCount >= settings.matchThreshold
+      // Detect center from the first qualifying block only
+      if (isMatch && detectedCenter === null && firstMatch.x !== -1) {
+        const center = findStarCenter(data, width, height, firstMatch.x, firstMatch.y, settings)
+        if (center) {
+          detectedCenter = center
+          starCount = countNeighborStars(data, width, height, center.x, center.y, screenHeight, settings)
+        }
+      }
+
+      // Only record blocks that had at least one matching pixel
+      if (matchCount > 0) {
+        blocks.push({ x, y, size: gridSize, matchCount, isMatch })
+      }
+    }
+  }
+
+  return { gridSize, blocks, detectedCenter, starCount }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 /**
  * Count neighboring stars to the left and right
@@ -246,8 +350,9 @@ function countNeighborStars(
   centerX: number,
   centerY: number,
   screenHeight: number,
+  settings: StarDetectionSettings,
 ): number {
-  const dist = Math.round(screenHeight * STAR_DISTANCE_PERCENT)
+  const dist = Math.round(screenHeight * settings.starDistancePercent)
   const searchRadius = Math.max(3, Math.round(screenHeight * 0.005)) // 0.5% search radius
   let count = 1 // The one we found
 
@@ -265,7 +370,7 @@ function countNeighborStars(
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
 
         const idx = (ny * width + nx) * 4
-        if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0)) {
+        if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
           foundStar = true
         }
       }
@@ -292,7 +397,7 @@ function countNeighborStars(
         if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
 
         const idx = (ny * width + nx) * 4
-        if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0)) {
+        if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
           foundStar = true
         }
       }

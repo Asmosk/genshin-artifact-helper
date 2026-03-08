@@ -9,6 +9,12 @@ import RegionSelector from '@/components/RegionSelector.vue'
 import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
 import OCRResults from '@/components/OCRResults.vue'
 import type { CaptureRegion } from '@/utils/capture'
+import {
+  debugDetectStars,
+  defaultStarDetectionSettings,
+  type StarDetectionDebugData,
+  type StarDetectionSettings,
+} from '@/utils/star-detection'
 
 const captureStore = useCaptureStore()
 const settingsStore = useSettingsStore()
@@ -21,6 +27,13 @@ const showRegionSelector = ref(false)
 const regionSelectorCanvas = ref<HTMLCanvasElement | null>(null)
 const showAdvancedPreprocessing = ref(false)
 const showOCRRegions = ref(true)
+
+// Debug menu state
+const showDebugMenu = ref(false)
+const debugShowOCRRegions = ref(false)
+const debugShowStarDetection = ref(false)
+const debugStarData = ref<StarDetectionDebugData | null>(null)
+const starSettings = ref<StarDetectionSettings>({ ...defaultStarDetectionSettings })
 
 // Computed
 const hasCapture = computed(() => captureStore.isActive)
@@ -58,6 +71,17 @@ const activeLayout = computed(() => {
       return null
     }
   }
+  // Debug: return template even when region OCR is disabled
+  if (debugShowOCRRegions.value) {
+    const type = settingsStore.ocrSettings.regions.screenType === 'auto'
+      ? 'inventory'
+      : settingsStore.ocrSettings.regions.screenType as any
+    try {
+      return getRegionTemplate(type)
+    } catch (e) {
+      return null
+    }
+  }
   return null
 })
 
@@ -74,17 +98,25 @@ function redrawPreview(): void {
   previewCanvasRef.value.height = displayCanvas.height
   ctx.drawImage(displayCanvas, 0, 0)
 
-  if (showOCRRegions.value && layout) {
+  if ((showOCRRegions.value || debugShowOCRRegions.value) && layout) {
     drawOCRRegions(ctx, layout, previewCanvasRef.value.width, previewCanvasRef.value.height)
+  }
+
+  if (debugShowStarDetection.value && debugStarData.value) {
+    drawStarDetectionData(ctx, debugStarData.value)
   }
 }
 
 watch(
-  [() => captureStore.capturedImage, activeLayout, showOCRRegions, () => ocrStore.detectedRarityBounds],
-  async () => {
+  [() => captureStore.capturedImage, activeLayout, showOCRRegions, debugShowOCRRegions, debugShowStarDetection, () => ocrStore.detectedRarityBounds, starSettings],
+  async ([, , , , newDebugStar]) => {
     await nextTick()
+    if (newDebugStar) {
+      runStarDetectionDebug()
+    }
     redrawPreview()
   },
+  { deep: true },
 )
 
 function drawOCRRegions(
@@ -141,6 +173,68 @@ function drawOCRRegions(
       drawRegionPixels(r.x * width, r.y * height, r.width * width, r.height * height, label, '#00ff00')
     }
   }
+}
+
+function drawStarDetectionData(ctx: CanvasRenderingContext2D, data: StarDetectionDebugData): void {
+  const { blocks, detectedCenter, starCount } = data
+
+  for (const block of blocks) {
+    if (block.isMatch) {
+      // Candidate block — star color threshold met
+      ctx.fillStyle = 'rgba(255, 204, 50, 0.35)'
+      ctx.strokeStyle = 'rgba(255, 204, 50, 0.9)'
+    } else {
+      // Some star pixels but below threshold
+      ctx.fillStyle = 'rgba(255, 160, 0, 0.18)'
+      ctx.strokeStyle = 'rgba(255, 160, 0, 0.55)'
+    }
+    ctx.lineWidth = 1
+    ctx.fillRect(block.x, block.y, block.size, block.size)
+    ctx.strokeRect(block.x, block.y, block.size, block.size)
+  }
+
+  if (detectedCenter) {
+    const cs = 12
+    ctx.strokeStyle = '#ff2222'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(detectedCenter.x - cs, detectedCenter.y)
+    ctx.lineTo(detectedCenter.x + cs, detectedCenter.y)
+    ctx.moveTo(detectedCenter.x, detectedCenter.y - cs)
+    ctx.lineTo(detectedCenter.x, detectedCenter.y + cs)
+    ctx.stroke()
+
+    ctx.fillStyle = '#ff2222'
+    ctx.beginPath()
+    ctx.arc(detectedCenter.x, detectedCenter.y, 4, 0, Math.PI * 2)
+    ctx.fill()
+
+    if (starCount !== null) {
+      ctx.font = 'bold 14px sans-serif'
+      ctx.fillStyle = '#ff2222'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(`${starCount}★`, detectedCenter.x + 14, detectedCenter.y)
+    }
+  }
+}
+
+function runStarDetectionDebug(): void {
+  const canvas = captureStore.capturedImage?.original
+  if (canvas) {
+    debugStarData.value = debugDetectStars(canvas, canvas.height, starSettings.value)
+  } else {
+    debugStarData.value = null
+  }
+}
+
+function toggleStarDetectionDebug(): void {
+  debugShowStarDetection.value = !debugShowStarDetection.value
+  if (debugShowStarDetection.value) {
+    runStarDetectionDebug()
+  } else {
+    debugStarData.value = null
+  }
+  redrawPreview()
 }
 
 // Actions - Screen Capture
@@ -489,6 +583,88 @@ async function sendToOCR(): Promise<void> {
               Show Regions on Preview
             </label>
             <small>Highlight identified OCR areas</small>
+          </div>
+        </section>
+
+        <section class="control-section debug-section">
+          <h2 class="collapsible-header" @click="showDebugMenu = !showDebugMenu">
+            {{ showDebugMenu ? '▼' : '▶' }} Debug
+          </h2>
+          <div v-if="showDebugMenu" class="debug-controls">
+            <button
+              class="btn btn-secondary debug-btn"
+              :class="{ 'debug-btn-active': debugShowOCRRegions }"
+              :disabled="!hasImage"
+              @click="debugShowOCRRegions = !debugShowOCRRegions"
+            >
+              Draw OCR Regions
+            </button>
+            <button
+              class="btn btn-secondary debug-btn"
+              :class="{ 'debug-btn-active': debugShowStarDetection }"
+              :disabled="!hasImage"
+              @click="toggleStarDetectionDebug"
+            >
+              Draw Star Detection Data
+            </button>
+            <div v-if="debugShowStarDetection && debugStarData" class="debug-info">
+              <span v-if="debugStarData.detectedCenter">
+                Center: ({{ debugStarData.detectedCenter.x }}, {{ debugStarData.detectedCenter.y }})
+                &mdash; {{ debugStarData.starCount }}★
+              </span>
+              <span v-else class="debug-no-stars">No stars detected</span>
+              <small>{{ debugStarData.blocks.length }} active blocks &bull; grid {{ debugStarData.gridSize }}px</small>
+            </div>
+            <div v-if="debugShowStarDetection" class="star-settings-panel">
+              <div class="star-settings-header">
+                <span>Star Detection Settings</span>
+                <button class="btn btn-small" @click="starSettings = { ...defaultStarDetectionSettings }">Reset Defaults</button>
+              </div>
+              <div class="star-color-preview-row">
+                <span>Star Color:</span>
+                <div
+                  class="star-color-swatch"
+                  :style="{ background: `rgb(${starSettings.starColorR}, ${starSettings.starColorG}, ${starSettings.starColorB})` }"
+                />
+                <code>rgb({{ starSettings.starColorR }}, {{ starSettings.starColorG }}, {{ starSettings.starColorB }})</code>
+              </div>
+              <div class="star-setting-row">
+                <label>R <span>{{ starSettings.starColorR }}</span></label>
+                <input type="range" min="0" max="255" step="1" v-model.number="starSettings.starColorR" />
+              </div>
+              <div class="star-setting-row">
+                <label>G <span>{{ starSettings.starColorG }}</span></label>
+                <input type="range" min="0" max="255" step="1" v-model.number="starSettings.starColorG" />
+              </div>
+              <div class="star-setting-row">
+                <label>B <span>{{ starSettings.starColorB }}</span></label>
+                <input type="range" min="0" max="255" step="1" v-model.number="starSettings.starColorB" />
+              </div>
+              <div class="star-setting-row">
+                <label>Color Tolerance <span>{{ starSettings.colorTolerance }}</span></label>
+                <input type="range" min="1" max="100" step="1" v-model.number="starSettings.colorTolerance" />
+              </div>
+              <div class="star-setting-row">
+                <label>Grid Size % <span>{{ starSettings.gridSizePercent.toFixed(4) }}</span></label>
+                <input type="range" min="0.005" max="0.05" step="0.0005" v-model.number="starSettings.gridSizePercent" />
+              </div>
+              <div class="star-setting-row">
+                <label>Star Size % <span>{{ starSettings.starSizePercent.toFixed(4) }}</span></label>
+                <input type="range" min="0.01" max="0.08" step="0.001" v-model.number="starSettings.starSizePercent" />
+              </div>
+              <div class="star-setting-row">
+                <label>Center Square % <span>{{ starSettings.centerSquarePercent.toFixed(4) }}</span></label>
+                <input type="range" min="0.005" max="0.04" step="0.0005" v-model.number="starSettings.centerSquarePercent" />
+              </div>
+              <div class="star-setting-row">
+                <label>Star Distance % <span>{{ starSettings.starDistancePercent.toFixed(4) }}</span></label>
+                <input type="range" min="0.01" max="0.1" step="0.001" v-model.number="starSettings.starDistancePercent" />
+              </div>
+              <div class="star-setting-row">
+                <label>Match Threshold <span>{{ starSettings.matchThreshold }}</span></label>
+                <input type="range" min="1" max="20" step="1" v-model.number="starSettings.matchThreshold" />
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -940,5 +1116,123 @@ async function sendToOCR(): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+}
+
+.debug-section {
+  border: 1px solid #444;
+}
+
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.collapsible-header:hover {
+  color: #aaa;
+}
+
+.debug-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.debug-btn {
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.debug-btn-active {
+  background: #554400;
+  color: #ffcc32;
+  border: 1px solid #ffcc32;
+}
+
+.debug-btn-active:hover:not(:disabled) {
+  background: #665500;
+}
+
+.debug-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: #1a1a1a;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: #ffcc32;
+}
+
+.debug-no-stars {
+  color: #ff6666;
+}
+
+.debug-info small {
+  color: #888;
+  font-family: monospace;
+}
+
+.star-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  background: #1a1a1a;
+  border-radius: 4px;
+  border: 1px solid #554400;
+}
+
+.star-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: #ffcc32;
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.star-color-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #aaa;
+  font-family: monospace;
+  margin-bottom: 0.25rem;
+}
+
+.star-color-swatch {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 3px;
+  border: 1px solid #666;
+  flex-shrink: 0;
+}
+
+.star-setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.star-setting-row label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #aaa;
+  font-family: monospace;
+}
+
+.star-setting-row label span {
+  color: #ffcc32;
+}
+
+.star-setting-row input[type='range'] {
+  width: 100%;
+  accent-color: #ffcc32;
+  cursor: pointer;
 }
 </style>
