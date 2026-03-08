@@ -30,6 +30,7 @@ export const useOCRStore = defineStore('ocr', () => {
   const processingTime = ref(0) // milliseconds
   const detectedRarityBounds = ref<Rectangle | null>(null)
   const detectedRegionPositions = ref<Map<string, Rectangle> | null>(null)
+  const detectedAnchorPx = ref<{ x: number; y: number } | null>(null)
 
   // Getters
   const isProcessing = computed(() => state.value === 'processing' || state.value === 'initializing')
@@ -157,6 +158,7 @@ export const useOCRStore = defineStore('ocr', () => {
     state.value = 'idle'
     detectedRarityBounds.value = null
     detectedRegionPositions.value = null
+    detectedAnchorPx.value = null
   }
 
   /**
@@ -232,6 +234,10 @@ export const useOCRStore = defineStore('ocr', () => {
           debug: false,
         },
       )
+
+      if (regionResult.starDetection) {
+        detectedAnchorPx.value = { x: regionResult.starDetection.position.x, y: regionResult.starDetection.position.y }
+      }
 
       progress.value = 85
       progressStatus.value = 'Parsing artifact data...'
@@ -341,6 +347,7 @@ export const useOCRStore = defineStore('ocr', () => {
       // Use detected first-star center as the canonical anchor point
       const anchorPx = { x: detection.stars.position.x, y: detection.stars.position.y }
       console.log('[Star Detection] Anchor point (px):', anchorPx)
+      detectedAnchorPx.value = anchorPx
 
       const positions = calculateAllRegionPositions(layout, canvas.width, canvas.height, anchorPx)
       positions.set('starAnchor', detection.regionBounds)
@@ -370,6 +377,7 @@ export const useOCRStore = defineStore('ocr', () => {
     processingTime,
     detectedRarityBounds,
     detectedRegionPositions,
+    detectedAnchorPx,
 
     // Getters
     isProcessing,

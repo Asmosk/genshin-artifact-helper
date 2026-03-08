@@ -80,7 +80,7 @@ export interface ArtifactRegionLayout {
   }
 
   /** Expected center of first (leftmost) star in screen %, used as anchor for all region offsets */
-  anchorPoint: { x: number; y: number }
+  anchorPoint?: { x: number; y: number }
 
   /** All text regions to process (coordinates are offsets from anchorPoint in screen %) */
   regions: {

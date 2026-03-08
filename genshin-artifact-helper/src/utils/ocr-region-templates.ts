@@ -32,8 +32,7 @@ function createRegion(
 
 /**
  * Inventory Screen Layout
- * anchorPoint: expected center of first star = (8.5%, 18.0%) of screen
- * All region x,y are offsets from anchor in screen %
+ * All region x,y are offsets from the detected star anchor in screen %
  */
 const INVENTORY_LAYOUT: ArtifactRegionLayout = {
   id: 'inventory-default',
@@ -44,45 +43,42 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
     height: 1440,
   },
 
-  anchorPoint: { x: 0.085, y: 0.180 },
-
   regions: {
     pieceName: createRegion(
       REGION_NAMES.PIECE_NAME,
-      -0.005, -0.100, 0.25, 0.08,
+      -0.01, -0.2328, 0.182, 0.048,
       'text',
-      {
-        multiLine: true,
-        preprocessingOverrides: {
-          adaptive: true,
-          contrastFactor: 2.0,
-        },
-      },
     ),
 
-    slotName: createRegion(REGION_NAMES.SLOT_NAME, -0.005, 0.040, 0.20, 0.03, 'text'),
+    slotName: createRegion(REGION_NAMES.SLOT_NAME,
+      -0.009, -0.172, 0.125, 0.03,
+      'text',
+      { whitelist: 'FloweriPumDathSnGbC ' },
+    ),
 
     level: createRegion(
       REGION_NAMES.LEVEL,
-      0.165, -0.100, 0.08, 0.04,
+      -0.006, 0.046, 0.028, 0.036,
       'mixed',
       { whitelist: '+0123456789' },
     ),
 
-    mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME, -0.005, 0.100, 0.20, 0.04, 'text'),
+    mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
+      -0.008, -0.100, 0.119, 0.033,
+      'text',
+      { whitelist: 'ATKDEFCRImgnyhlsBouP ' },
+    ),
 
-    mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE, -0.005, 0.150, 0.15, 0.05, 'mixed', {
-      whitelist: '0123456789.%+',
-      preprocessingOverrides: {
-        upscale: true,
-        scaleFactor: 2,
-      },
+    mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE,
+      -0.007, -0.073, 0.077, 0.05,
+      'mixed', {
+      whitelist: '0123456789.%'
     }),
 
-    substat1: createRegion(REGION_NAMES.SUBSTAT_1, -0.005, 0.240, 0.25, 0.04, 'mixed'),
-    substat2: createRegion(REGION_NAMES.SUBSTAT_2, -0.005, 0.290, 0.25, 0.04, 'mixed'),
-    substat3: createRegion(REGION_NAMES.SUBSTAT_3, -0.005, 0.340, 0.25, 0.04, 'mixed'),
-    substat4: createRegion(REGION_NAMES.SUBSTAT_4, -0.005, 0.390, 0.25, 0.04, 'mixed', {
+    substat1: createRegion(REGION_NAMES.SUBSTAT_1, 0.004, 0.092, 0.162, 0.04, 'mixed'),
+    substat2: createRegion(REGION_NAMES.SUBSTAT_2, 0.004, 0.127, 0.162, 0.04, 'mixed'),
+    substat3: createRegion(REGION_NAMES.SUBSTAT_3, 0.004, 0.163, 0.162, 0.04, 'mixed'),
+    substat4: createRegion(REGION_NAMES.SUBSTAT_4, 0.004, 0.199, 0.162, 0.046, 'mixed', {
       optional: true,
       multiLine: true,
     }),
@@ -91,7 +87,6 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
 
 /**
  * Character Screen Layout
- * anchorPoint: expected center of first star = (68.0%, 16.5%) of screen
  */
 const CHARACTER_LAYOUT: ArtifactRegionLayout = {
   id: 'character-default',
@@ -101,8 +96,6 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     width: 3440,
     height: 1440,
   },
-
-  anchorPoint: { x: 0.680, y: 0.165 },
 
   regions: {
     pieceName: createRegion(
@@ -154,7 +147,6 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
 
 /**
  * Rewards Screen Layout
- * anchorPoint: expected center of first star = (42.0%, 23.5%) of screen
  */
 const REWARDS_LAYOUT: ArtifactRegionLayout = {
   id: 'rewards-default',
@@ -164,8 +156,6 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
     width: 3440,
     height: 1440,
   },
-
-  anchorPoint: { x: 0.420, y: 0.235 },
 
   regions: {
     pieceName: createRegion(

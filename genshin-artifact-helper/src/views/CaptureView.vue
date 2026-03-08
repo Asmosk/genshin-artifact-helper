@@ -8,7 +8,9 @@ import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-regi
 import RegionSelector from '@/components/RegionSelector.vue'
 import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
 import OCRResults from '@/components/OCRResults.vue'
+import OCRRegionOffsetSetup from '@/components/OCRRegionOffsetSetup.vue'
 import type { CaptureRegion } from '@/utils/capture'
+import type { ArtifactRegionLayout, ScreenType } from '@/types/ocr-regions'
 import {
   debugDetectStars,
   defaultStarDetectionSettings,
@@ -35,6 +37,36 @@ const debugShowStarDetection = ref(false)
 const debugStarData = ref<StarDetectionDebugData | null>(null)
 const starSettings = ref<StarDetectionSettings>({ ...defaultStarDetectionSettings })
 
+// OCR Region Offset Setup state
+const showRegionOffsetSetup = ref(false)
+const regionEditorScreenType = ref<ScreenType>('inventory')
+const regionEditorLayout = ref<ArtifactRegionLayout | null>(null)
+
+function initRegionEditorLayout() {
+  const template = JSON.parse(JSON.stringify(getRegionTemplate(regionEditorScreenType.value)))
+  if (ocrStore.detectedAnchorPx && previewCanvasRef.value) {
+    const w = previewCanvasRef.value.width
+    const h = previewCanvasRef.value.height
+    template.anchorPoint = {
+      x: ocrStore.detectedAnchorPx.x / w,
+      y: ocrStore.detectedAnchorPx.y / h,
+    }
+  }
+  regionEditorLayout.value = template
+}
+
+function toggleRegionOffsetSetup() {
+  showRegionOffsetSetup.value = !showRegionOffsetSetup.value
+  if (showRegionOffsetSetup.value && !regionEditorLayout.value) {
+    initRegionEditorLayout()
+  }
+}
+
+function onEditorScreenTypeChange(type: ScreenType) {
+  regionEditorScreenType.value = type
+  initRegionEditorLayout()
+}
+
 // Computed
 const hasCapture = computed(() => captureStore.isActive)
 const hasImage = computed(() => captureStore.hasImage)
@@ -60,6 +92,9 @@ const statusMessage = computed(() => {
 
 // Watch for captured images and update preview
 const activeLayout = computed(() => {
+  if (showRegionOffsetSetup.value && regionEditorLayout.value) {
+    return regionEditorLayout.value
+  }
   if (ocrStore.activeLayout) {
     return ocrStore.activeLayout
   }
@@ -98,7 +133,7 @@ function redrawPreview(): void {
   previewCanvasRef.value.height = displayCanvas.height
   ctx.drawImage(displayCanvas, 0, 0)
 
-  if ((showOCRRegions.value || debugShowOCRRegions.value) && layout) {
+  if ((showOCRRegions.value || debugShowOCRRegions.value || showRegionOffsetSetup.value) && layout) {
     drawOCRRegions(ctx, layout, previewCanvasRef.value.width, previewCanvasRef.value.height)
   }
 
@@ -142,7 +177,21 @@ function drawOCRRegions(
     ctx.fillText(label, x + 5, y - 2)
   }
 
-  const detectedPositions = ocrStore.detectedRegionPositions
+  const drawAnchorMarker = (x: number, y: number) => {
+    const cs = 10
+    ctx.strokeStyle = '#00ccff'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(x - cs, y); ctx.lineTo(x + cs, y)
+    ctx.moveTo(x, y - cs); ctx.lineTo(x, y + cs)
+    ctx.stroke()
+    ctx.fillStyle = '#00ccff'
+    ctx.beginPath()
+    ctx.arc(x, y, 3, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  const detectedPositions = showRegionOffsetSetup.value ? null : ocrStore.detectedRegionPositions
 
   if (detectedPositions) {
     // Draw all OCR regions in orange from computed pixel positions (skip starAnchor — shown by drawStarDetectionData)
@@ -153,9 +202,14 @@ function drawOCRRegions(
         drawRegionPixels(pos.x, pos.y, pos.width, pos.height, label, '#ff9900')
       }
     }
+    if (ocrStore.detectedAnchorPx) {
+      drawAnchorMarker(ocrStore.detectedAnchorPx.x, ocrStore.detectedAnchorPx.y)
+    }
   } else {
     // No detection yet — draw all regions from template anchorPoint in green
-    const anchorPx = { x: layout.anchorPoint.x * width, y: layout.anchorPoint.y * height }
+    const anchor = layout.anchorPoint
+    if (!anchor) return  // can't draw without an anchor
+    const anchorPx = { x: anchor.x * width, y: anchor.y * height }
     const templatePositions = calculateAllRegionPositions(layout, width, height, anchorPx)
     for (const [name, region] of Object.entries(layout.regions)) {
       const pos = templatePositions.get((region as any).name)
@@ -164,6 +218,7 @@ function drawOCRRegions(
         drawRegionPixels(pos.x, pos.y, pos.width, pos.height, label, '#00ff00')
       }
     }
+    drawAnchorMarker(anchorPx.x, anchorPx.y)
   }
 }
 
@@ -599,6 +654,20 @@ async function sendToOCR(): Promise<void> {
             >
               Draw Star Detection Data
             </button>
+            <button
+              class="btn btn-secondary debug-btn"
+              :class="{ 'debug-btn-active': showRegionOffsetSetup }"
+              @click="toggleRegionOffsetSetup"
+            >
+              OCR Region Offset Setup
+            </button>
+            <OCRRegionOffsetSetup
+              v-if="showRegionOffsetSetup && regionEditorLayout"
+              v-model="regionEditorLayout"
+              :screen-type="regionEditorScreenType"
+              @update:screen-type="onEditorScreenTypeChange"
+              @reset="initRegionEditorLayout"
+            />
             <div v-if="debugShowStarDetection && debugStarData" class="debug-info">
               <span v-if="debugStarData.detectedCenter">
                 Center: ({{ debugStarData.detectedCenter.x }}, {{ debugStarData.detectedCenter.y }})
