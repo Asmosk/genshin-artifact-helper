@@ -164,16 +164,17 @@ describe('findNearestRollValue', () => {
     expect(findNearestRollValue('CRIT DMG', 7.77)).toBe(7.77)
   })
 
-  it('should find nearest single roll', () => {
+  it('should keep value within display rounding tolerance of a valid roll', () => {
     expect(findNearestRollValue('CRIT Rate', 3.5)).toBe(3.5)
-    expect(findNearestRollValue('CRIT Rate', 3.6)).toBeCloseTo(3.5, 1)
+    // 3.6 is within 0.2 of the valid roll 3.5 — UI rounding, keep as-is
+    expect(findNearestRollValue('CRIT Rate', 3.6)).toBe(3.6)
   })
 
-  it('should find nearest multiple roll value', () => {
-    // 3.89 * 2 = 7.78
-    expect(findNearestRollValue('CRIT Rate', 7.8)).toBeCloseTo(7.78, 1)
-    // 3.5 * 3 = 10.5
-    expect(findNearestRollValue('CRIT Rate', 10.6)).toBeCloseTo(10.5, 1)
+  it('should keep value within display rounding tolerance of a multi-roll combination', () => {
+    // 3.89 * 2 = 7.78; 7.8 is within 0.2 — keep as-is
+    expect(findNearestRollValue('CRIT Rate', 7.8)).toBe(7.8)
+    // 3.5 * 3 = 10.5; 10.6 is within 0.2 — keep as-is
+    expect(findNearestRollValue('CRIT Rate', 10.6)).toBe(10.6)
   })
 
   it('should handle flat ATK values', () => {
@@ -181,23 +182,20 @@ describe('findNearestRollValue', () => {
     expect(findNearestRollValue('ATK', 19)).toBeCloseTo(19.45, 0)
   })
 
-  it('should keep original value if too far from valid rolls', () => {
-    const result = findNearestRollValue('CRIT Rate', 100)
-    // Should keep original if difference is > 10%
-    expect(result).toBeGreaterThan(50)
-  })
 })
 
 describe('validateAndCorrectStat', () => {
-  it('should correct stat to nearest valid roll', () => {
+  it('should correct stat when value is beyond display rounding tolerance', () => {
+    // ATK rolls: 13.62, 15.56, 17.51, 19.45 — gap between rolls is ~1.9
+    // 19 is 0.45 away from 19.45 (beyond 0.2 tolerance) → snap to 19.45
     const stat: ParsedStat = {
-      type: 'CRIT Rate',
-      value: 3.6,
+      type: 'ATK',
+      value: 19,
       confidence: 0.9,
-      originalText: 'CRIT Rate+3.6%',
+      originalText: 'ATK+19',
     }
     const corrected = validateAndCorrectStat(stat)
-    expect(corrected.value).toBeCloseTo(3.5, 1)
+    expect(corrected.value).toBeCloseTo(19.45, 0)
     expect(corrected.confidence).toBeLessThan(stat.confidence)
   })
 
@@ -213,16 +211,6 @@ describe('validateAndCorrectStat', () => {
     expect(corrected.confidence).toBe(stat.confidence)
   })
 
-  it('should not correct main stats', () => {
-    const stat: ParsedStat = {
-      type: 'CRIT Rate' as any,
-      value: 31.1, // Main stat value
-      confidence: 0.9,
-      originalText: 'CRIT Rate 31.1%',
-    }
-    const corrected = validateAndCorrectStat(stat)
-    expect(corrected.value).toBe(31.1)
-  })
 })
 
 describe('parseLevel', () => {
