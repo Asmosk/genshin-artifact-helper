@@ -163,8 +163,8 @@ export function findNearestRollValue(type: SubstatType, value: number): number {
     }
   }
 
-  // If difference is > 10% of value, keep original (might be correct)
-  if (minDiff > value * 0.1) {
+  // Keep original if deviation is too small (game UI rounding, e.g. 5.18 displays as 5.2)
+  if (minDiff < 0.2) {
     return value
   }
 
@@ -309,7 +309,7 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
 
     if (!text.trim()) {
       if (i <= 3) {
-        // First 3 substats should always exist
+        // First 3 substats should always exist TODO: not true, 5 star artifacts have 4, 4 star have 2 or 3, 3 star have 1 or 2
         errors.push(`Substat ${i} is empty`)
       }
       continue
