@@ -320,7 +320,8 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
       continue
     }
 
-    const isUnactivated = /unactivated/i.test(text)
+    const secondLineText = i === 4 ? (regions.get('substat4SecondLine')?.text || '') : ''
+    const isUnactivated = /unactivated/i.test(text) || /unactivated/i.test(secondLineText)
 
     // Apply OCR error correction
     const correctedText = correctOCRErrors(text)

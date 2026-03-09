@@ -111,6 +111,7 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       0.004, 0.127, 0.162, 0.04,
       'mixed',
       {
+        optional: true,
         preprocessingOverrides: {
           grayscale: true,
         }
@@ -120,17 +121,27 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       0.004, 0.163, 0.162, 0.04,
       'mixed',
       {
+        optional: true,
         preprocessingOverrides: {
           grayscale: true,
         }
       },
     ),
     substat4: createRegion(REGION_NAMES.SUBSTAT_4,
-      0.004, 0.199, 0.162, 0.046,
+      0.004, 0.199, 0.162, 0.04,
       'mixed',
       {
         optional: true,
-        multiLine: true,
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      }
+    ),
+    substat4SecondLine: createRegion(REGION_NAMES.SUBSTAT_4_2,
+      -0.006, 0.23, 0.172, 0.034,
+      'mixed',
+      {
+        optional: true,
         preprocessingOverrides: {
           grayscale: true,
         }
@@ -195,6 +206,16 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
       optional: true,
       multiLine: true,
     }),
+    substat4SecondLine: createRegion(REGION_NAMES.SUBSTAT_4_2,
+      0.004, 0.199, 0.162, 0.04,
+      'mixed',
+      {
+        optional: true,
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      }
+    ),
   },
 }
 
@@ -254,6 +275,16 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
       optional: true,
       multiLine: true,
     }),
+    substat4SecondLine: createRegion(REGION_NAMES.SUBSTAT_4_2,
+      0.004, 0.199, 0.162, 0.04,
+      'mixed',
+      {
+        optional: true,
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      }
+    ),
   },
 }
 

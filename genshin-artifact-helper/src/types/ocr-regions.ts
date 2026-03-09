@@ -91,7 +91,8 @@ export interface ArtifactRegionLayout {
     substat1: OCRRegion // includes name + value
     substat2: OCRRegion
     substat3: OCRRegion
-    substat4: OCRRegion // can be "Unlocked" state
+    substat4: OCRRegion
+    substat4SecondLine: OCRRegion
   }
 
   /** Default preprocessing applied to every region in this layout (ground truth — defined in ocr-region-templates.ts) */
@@ -205,4 +206,5 @@ export const REGION_NAMES = {
   SUBSTAT_2: 'substat2',
   SUBSTAT_3: 'substat3',
   SUBSTAT_4: 'substat4',
+  SUBSTAT_4_2: 'substat4SecondLine',
 } as const

@@ -27,6 +27,7 @@ const REGION_KEYS = [
   'substat2',
   'substat3',
   'substat4',
+  'substat4SecondLine',
 ] as const
 
 type RegionKey = typeof REGION_KEYS[number]
