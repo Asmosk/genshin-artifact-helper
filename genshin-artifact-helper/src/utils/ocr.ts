@@ -8,6 +8,7 @@ export interface OCRConfig {
   lang?: string
   psm?: number
   oem?: number
+  langPath?: string
 }
 
 /**
@@ -50,7 +51,7 @@ export class OCRWorker {
     try {
       // Create worker with OEM in constructor (can't be changed after init)
       const workerOptions: any = {
-        langPath: '/tessdata',
+        langPath: this.config.langPath ?? '/tessdata',
         gzip: false,
       }
       if (onProgress) {
@@ -90,7 +91,15 @@ export class OCRWorker {
     }
 
     try {
-      return await this.worker.recognize(image)
+      // In Node.js, canvas objects must be converted to a buffer — Tesseract.js
+      // only supports file paths / Buffers outside the browser. The node-canvas
+      // package exposes toBuffer() which HTMLCanvasElement never has in a browser,
+      // so this branch is safely unreachable in production.
+      let input: Parameters<typeof this.worker.recognize>[0] = image as any
+      if (typeof (image as any)?.toBuffer === 'function') {
+        input = (image as any).toBuffer('image/png') as any
+      }
+      return await this.worker.recognize(input)
     } catch (error) {
       throw new Error(
         `OCR recognition failed: ${error instanceof Error ? error.message : 'Unknown error'}`,

@@ -1,22 +1,59 @@
 /**
- * Integration tests for OCR functionality with real artifact screenshots
+ * @vitest-environment node
+ *
+ * Integration tests for OCR functionality with real artifact screenshots.
+ * Uses the full region-based pipeline (recognizeRegions → parseArtifactFromRegions)
+ * to match how the app actually processes screenshots.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
+import { createCanvas, loadImage, ImageData } from 'canvas'
 import { getOCRWorker, terminateGlobalWorker } from '@/utils/ocr'
-import { parseArtifact } from '@/utils/parsing'
+import { recognizeRegions } from '@/utils/ocr-regions'
+import { parseArtifactFromRegions } from '@/utils/parsing'
+import { getRegionTemplate } from '@/utils/ocr-region-templates'
 import type { Artifact } from '@/types/artifact'
+import type { ScreenType } from '@/types/ocr-regions'
+
+// Polyfill browser APIs used by cropCanvas / preprocessRegion / preprocessing.ts
+;(globalThis as any).document = {
+  createElement: (type: string) => {
+    if (type === 'canvas') return createCanvas(1, 1)
+    throw new Error(`document.createElement('${type}') not available in test environment`)
+  },
+}
+;(globalThis as any).ImageData = ImageData
+
+/**
+ * Expected substat in fixture (includes unactivated flag)
+ */
+interface FixtureSubstat {
+  type: string
+  value: number
+  unactivated?: boolean
+}
+
+/**
+ * Expected artifact data in fixture
+ */
+interface FixtureExpected {
+  screen?: string
+  starCoords?: { x: number; y: number }
+  set?: string
+  slot?: string
+  rarity?: number
+  level?: number
+  mainStat?: { type: string; value: number }
+  substats?: FixtureSubstat[]
+}
 
 /**
  * Ground truth fixture format
  */
 interface FixtureGroundTruth {
-  filename: string
-  description?: string
-  expected: Partial<Artifact>
-  notes?: string
+  expected: FixtureExpected
 }
 
 /**
@@ -28,6 +65,9 @@ interface TestResult {
   confidence: number
   errors: string[]
   matched: {
+    starCoords: boolean | 'not-tested'
+    screenType: boolean | 'not-detected'
+    setName: boolean | 'no-database'
     level: boolean
     rarity: boolean
     slot: boolean
@@ -42,7 +82,9 @@ describe('OCR Integration Tests', () => {
 
   beforeAll(async () => {
     // Initialize OCR worker once for all tests
-    const worker = getOCRWorker()
+    const worker = getOCRWorker({
+      langPath: join(__dirname, '..', '..', 'public', 'tessdata'),
+    })
     await worker.initialize()
   }, 30000) // 30s timeout for worker initialization
 
@@ -52,36 +94,36 @@ describe('OCR Integration Tests', () => {
 
     // Print test summary
     if (testResults.length > 0) {
+      const passed = testResults.filter((r) => r.success)
+      const failed = testResults.filter((r) => !r.success)
       console.log('\n=== OCR Test Results Summary ===')
-      console.log(`Total tests: ${testResults.length}`)
-      console.log(
-        `Successful: ${testResults.filter((r) => r.success).length}/${testResults.length}`,
-      )
-      console.log(
-        `Average confidence: ${(testResults.reduce((sum, r) => sum + r.confidence, 0) / testResults.length).toFixed(2)}`,
-      )
+      console.log(`Total: ${testResults.length}  Passed: ${passed.length}  Failed: ${failed.length}`)
 
-      const totalSubstats = testResults.reduce((sum, r) => sum + 4, 0) // Assume 4 substats per artifact
-      const matchedSubstats = testResults.reduce((sum, r) => sum + r.matched.substats, 0)
-      console.log(`Substat accuracy: ${matchedSubstats}/${totalSubstats} (${((matchedSubstats / totalSubstats) * 100).toFixed(1)}%)`)
-
-      console.log('\nIndividual Results:')
-      testResults.forEach((r) => {
-        const status = r.success ? '✓' : '✗'
-        console.log(`  ${status} ${r.filename} (conf: ${r.confidence.toFixed(2)})`)
-        if (r.errors.length > 0) {
-          console.log(`     Errors: ${r.errors.join(', ')}`)
-        }
-      })
+      if (failed.length > 0) {
+        console.log('\nFailed fixtures:')
+        failed.forEach((r) => {
+          console.log(`  ✗ ${r.filename} (conf: ${r.confidence.toFixed(2)})`)
+          const m = r.matched
+          if (!m.level) console.log(`      level: failed`)
+          if (!m.rarity) console.log(`      rarity: failed`)
+          if (!m.slot) console.log(`      slot: failed`)
+          if (!m.mainStat) console.log(`      mainStat: failed`)
+          console.log(`      substats: ${m.substats} matched`)
+          if (r.errors.length > 0) console.log(`      errors: ${r.errors.join(', ')}`)
+        })
+      }
     }
   })
 
   /**
-   * Helper to load fixture image - returns file path for Tesseract
+   * Load a fixture PNG into a canvas element using the node-canvas package
    */
-  async function loadFixtureImage(filename: string): Promise<string> {
-    // Return the full path - Tesseract.js can read files directly in Node.js
-    return join(fixturesDir, filename)
+  async function loadFixtureCanvas(filename: string): Promise<HTMLCanvasElement> {
+    const img = await loadImage(join(fixturesDir, filename))
+    const canvas = createCanvas(img.width, img.height)
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img as any, 0, 0)
+    return canvas as unknown as HTMLCanvasElement
   }
 
   /**
@@ -91,10 +133,33 @@ describe('OCR Integration Tests', () => {
     const jsonPath = join(fixturesDir, filename.replace('.png', '.json'))
     let content = await readFile(jsonPath, 'utf-8')
     // Remove BOM if present
-    if (content.charCodeAt(0) === 0xFEFF) {
+    if (content.charCodeAt(0) === 0xfeff) {
       content = content.slice(1)
     }
     return JSON.parse(content)
+  }
+
+  /**
+   * Assert a single field, logging only on failure. Returns true if matched.
+   */
+  function assertField<T>(
+    label: string,
+    parsed: T,
+    expected: T,
+    rawOcr?: string,
+    opts?: { tolerance?: number },
+  ): boolean {
+    let ok: boolean
+    if (opts?.tolerance !== undefined && typeof parsed === 'number' && typeof expected === 'number') {
+      ok = Math.abs(parsed - expected) <= opts.tolerance
+    } else {
+      ok = parsed === expected
+    }
+    if (!ok) {
+      const rawPart = rawOcr ? `, raw="${rawOcr}"` : ''
+      console.warn(`  ⚠️  ${label}: expected=${String(expected)}, got=${String(parsed)}${rawPart}`)
+    }
+    return ok
   }
 
   /**
@@ -102,20 +167,50 @@ describe('OCR Integration Tests', () => {
    */
   function compareArtifacts(
     parsed: Partial<Artifact>,
-    expected: Partial<Artifact>,
-  ): TestResult['matched'] {
+    expected: FixtureExpected,
+  ): Pick<TestResult['matched'], 'level' | 'rarity' | 'slot' | 'mainStat' | 'substats'> {
     return {
-      level: parsed.level === expected.level,
-      rarity: parsed.rarity === expected.rarity,
-      slot: parsed.slot === expected.slot,
+      level: assertField('level', parsed.level, expected.level),
+      rarity: assertField('rarity', parsed.rarity, expected.rarity),
+      slot: assertField('slot', parsed.slot, expected.slot),
       mainStat:
-        parsed.mainStat?.type === expected.mainStat?.type &&
-        Math.abs((parsed.mainStat?.value || 0) - (expected.mainStat?.value || 0)) < 0.5,
-      substats: (parsed.substats || []).filter((ps) =>
-        (expected.substats || []).some(
-          (es) => es.type === ps.type && Math.abs(es.value - ps.value) < 1.0,
-        ),
-      ).length,
+        assertField('mainStat.type', parsed.mainStat?.type, expected.mainStat?.type) &&
+        assertField('mainStat.value', parsed.mainStat?.value ?? 0, expected.mainStat?.value ?? 0, undefined, { tolerance: 0.5 }),
+      substats: (() => {
+        const parsedList = parsed.substats || []
+        const expectedList = expected.substats || []
+        let matchCount = 0
+        for (const es of expectedList) {
+          const matched = parsedList.some(
+            (ps) =>
+              es.type === ps.type &&
+              Math.abs(es.value - ps.value) < 1.0 &&
+              (es.unactivated ?? false) === ((ps as FixtureSubstat).unactivated ?? false),
+          )
+          if (matched) {
+            matchCount++
+          } else {
+            const sameType = parsedList.find((ps) => ps.type === es.type)
+            if (sameType) {
+              const gotUnactivated = (sameType as FixtureSubstat).unactivated ?? false
+              const expUnactivated = es.unactivated ?? false
+              const unactivatedNote =
+                gotUnactivated !== expUnactivated
+                  ? `, unactivated: expected=${expUnactivated}, got=${gotUnactivated}`
+                  : ''
+              console.warn(
+                `  ⚠️  substat "${es.type}": expected value=${es.value}, got=${sameType.value}${unactivatedNote}`,
+              )
+            } else {
+              const parsedSummary = parsedList.map((ps) => `${ps.type}=${ps.value}`).join(', ')
+              console.warn(
+                `  ⚠️  substat "${es.type}" (expected ${es.value}): not found — parsed=[${parsedSummary}]`,
+              )
+            }
+          }
+        }
+        return matchCount
+      })(),
     }
   }
 
@@ -137,7 +232,6 @@ describe('OCR Integration Tests', () => {
       }
     } catch (error) {
       console.warn(`Could not read fixtures directory: ${error}`)
-      // Don't fail the test - fixtures are optional for initial setup
     }
   })
 
@@ -150,59 +244,7 @@ describe('OCR Integration Tests', () => {
   })
 
   /**
-   * Test basic OCR functionality (without real images)
-   * Skipped because canvas doesn't work well in JSDOM
-   */
-  it.skip('should recognize text from mock input', async () => {
-    const worker = getOCRWorker()
-
-    // Create a simple test canvas with text
-    const canvas = document.createElement('canvas')
-    canvas.width = 200
-    canvas.height = 100
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = 'white'
-    ctx.fillRect(0, 0, 200, 100)
-    ctx.fillStyle = 'black'
-    ctx.font = '24px Arial'
-    ctx.fillText('CRIT Rate+3.5%', 10, 50)
-
-    // This will likely not work perfectly with the simple canvas
-    // but tests that the OCR pipeline doesn't crash
-    const result = await worker.recognize(canvas)
-    expect(result.data.text).toBeDefined()
-    expect(typeof result.data.confidence).toBe('number')
-  }, 10000)
-
-  /**
-   * Test parsing functionality (without OCR)
-   */
-  it('should parse artifact from known good OCR text', () => {
-    const sampleOCRText = `
-      Emblem of Severed Fate
-      Circlet of Logos
-      ★★★★★
-      +20
-      CRIT Rate 31.1%
-      CRIT DMG+21.0%
-      ATK+16.9%
-      Energy Recharge+11.0%
-      DEF+37
-    `
-
-    const result = parseArtifact(sampleOCRText)
-
-    expect(result.artifact.level).toBe(20)
-    expect(result.artifact.rarity).toBe(5)
-    expect(result.artifact.slot).toBe('Circlet')
-    expect(result.artifact.mainStat).toBeDefined()
-    expect(result.artifact.substats).toBeDefined()
-    expect(result.artifact.substats?.length).toBeGreaterThan(0)
-  })
-
-  /**
-   * Test with real fixture images
-   * Dynamically generates a test for each PNG file found
+   * Test with real fixture images using the full region-based pipeline
    */
   it('should process real fixture images', async () => {
     const files = await readdir(fixturesDir)
@@ -213,80 +255,139 @@ describe('OCR Integration Tests', () => {
       return
     }
 
-    console.log(`\n📸 Processing ${imageFiles.length} fixture images...\n`)
+    console.log(`Processing ${imageFiles.length} fixture images...`)
 
     for (const imageFile of imageFiles) {
       try {
-        console.log(`Testing: ${imageFile}`)
-
         // Load ground truth
         const groundTruth = await loadGroundTruth(imageFile)
+        const expected = groundTruth.expected
+        const screenType = expected.screen as ScreenType
 
-        // Load and process image
-        const imagePath = await loadFixtureImage(imageFile)
-        const worker = getOCRWorker()
-        const ocrResult = await worker.recognize(imagePath)
+        if (!screenType) {
+          console.warn(`  ⚠️  ${imageFile}: no screen type in ground truth, skipping`)
+          continue
+        }
 
-        console.log(`  Raw OCR text:\n${ocrResult.data.text.substring(0, 200)}...`)
+        // Load image as canvas
+        const canvas = await loadFixtureCanvas(imageFile)
 
-        // Parse artifact
-        const parseResult = parseArtifact(ocrResult.data.text)
+        // Run the full region-based OCR pipeline
+        const layout = getRegionTemplate(screenType)
+        let regionResult
+        try {
+          regionResult = await recognizeRegions(canvas, layout)
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error)
+          console.warn(`  ⚠️  ${imageFile}: pipeline failed (${msg})`)
+          testResults.push({
+            filename: imageFile,
+            success: false,
+            confidence: 0,
+            errors: [msg],
+            matched: {
+              starCoords: 'not-tested',
+              screenType: 'not-detected',
+              setName: 'no-database',
+              level: false,
+              rarity: false,
+              slot: false,
+              mainStat: false,
+              substats: 0,
+            },
+          })
+          continue
+        }
 
-        console.log(`  Parsed level: ${parseResult.artifact.level} (expected: ${groundTruth.expected.level})`)
-        console.log(`  Parsed rarity: ${parseResult.artifact.rarity} (expected: ${groundTruth.expected.rarity})`)
-        console.log(`  Parsed slot: ${parseResult.artifact.slot} (expected: ${groundTruth.expected.slot})`)
-        console.log(`  Parsed substats: ${parseResult.artifact.substats?.length || 0} (expected: ${groundTruth.expected.substats?.length || 0})`)
+        // --- Star coordinates assertion ---
+        const starPos = regionResult.starDetection?.position
+        let starCoordsResult: boolean | 'not-tested'
+        if (expected.starCoords && starPos) {
+          const TOLERANCE = 10
+          const dx = Math.abs(starPos.x - expected.starCoords.x)
+          const dy = Math.abs(starPos.y - expected.starCoords.y)
+          const ok = dx <= TOLERANCE && dy <= TOLERANCE
+          starCoordsResult = ok
+          if (!ok) {
+            console.warn(
+              `  ⚠️  ${imageFile} starCoords: expected=(${expected.starCoords.x},${expected.starCoords.y}), got=(${starPos.x},${starPos.y})`,
+            )
+          }
+        } else {
+          starCoordsResult = 'not-tested'
+          if (expected.starCoords) {
+            console.warn(`  ⚠️  ${imageFile} starCoords: star detection returned no position`)
+          }
+        }
 
-        // Compare results
-        const matched = compareArtifacts(parseResult.artifact, groundTruth.expected)
+        // --- Screen type assertion ---
+        // Auto-detection is NOT implemented — screen type is read from fixture and passed manually.
+        const detectedScreen = regionResult.screenType
+        let screenTypeResult: boolean | 'not-detected'
+        if (expected.screen) {
+          const ok = detectedScreen === expected.screen
+          screenTypeResult = ok ? true : 'not-detected'
+          if (!ok) {
+            console.warn(
+              `  ⚠️  ${imageFile} screenType: expected="${expected.screen}", got="${detectedScreen}" (manually provided — auto-detection NOT implemented)`,
+            )
+          }
+        } else {
+          screenTypeResult = 'not-detected'
+        }
 
-        // Record results
-        const testResult: TestResult = {
+        // --- Set name assertion ---
+        // No set→piece mapping database exists yet; OCR gives piece name only.
+        const pieceNameRegion = regionResult.regions.find((r) => r.regionName === 'pieceName')
+        const rawPieceName = pieceNameRegion?.text.trim() ?? ''
+        let setNameResult: boolean | 'no-database' = 'no-database'
+        if (expected.set) {
+          setNameResult = 'no-database'
+          console.info(
+            `  ℹ️  ${imageFile} setName: expected="${expected.set}", rawPieceName="${rawPieceName}" (set→piece mapping NOT implemented)`,
+          )
+          if (!rawPieceName) {
+            console.warn(`  ⚠️  ${imageFile} setName: pieceName OCR returned empty string`)
+          }
+        }
+
+        // --- Parse artifact and compare fields ---
+        const parseResult = parseArtifactFromRegions(
+          regionResult.regions,
+          regionResult.starDetection?.count as 3 | 4 | 5 | undefined,
+        )
+
+        const coreMatched = compareArtifacts(parseResult.artifact, expected)
+
+        const matched: TestResult['matched'] = {
+          starCoords: starCoordsResult,
+          screenType: screenTypeResult,
+          setName: setNameResult,
+          ...coreMatched,
+        }
+
+        testResults.push({
           filename: imageFile,
           success:
-            matched.level && matched.rarity && matched.slot && matched.substats >= 3,
+            matched.level &&
+            matched.rarity &&
+            matched.slot &&
+            coreMatched.substats >= (expected.substats?.length ?? 0),
           confidence: parseResult.confidence,
           errors: parseResult.errors,
           matched,
-        }
-        testResults.push(testResult)
+        })
 
-        // Log any mismatches but don't fail the test - OCR is inherently imperfect
-        if (!matched.level) console.warn(`  ⚠️  Level mismatch: got ${parseResult.artifact.level}, expected ${groundTruth.expected.level}`)
-        if (!matched.rarity) console.warn(`  ⚠️  Rarity mismatch: got ${parseResult.artifact.rarity}, expected ${groundTruth.expected.rarity}`)
-        if (!matched.slot) console.warn(`  ⚠️  Slot mismatch: got ${parseResult.artifact.slot}, expected ${groundTruth.expected.slot}`)
-        if (matched.substats < 3) console.warn(`  ⚠️  Only ${matched.substats}/4 substats matched`)
-
-        // Test passes if we got reasonable results (at least parsing worked)
         expect(parseResult.artifact, `${imageFile}: parsing completely failed`).toBeDefined()
       } catch (error) {
-        console.error(`❌ Failed to process ${imageFile}:`, error)
+        console.error(`❌ Unexpected error processing ${imageFile}:`, error)
         throw error
+      }
+
+      const result = testResults[testResults.length - 1]
+      if (result) {
+        expect(result.success, `${imageFile}: one or more fields did not match`).toBe(true)
       }
     }
   }, 120000) // 120s timeout for processing multiple images
-})
-
-/**
- * Performance benchmarks
- * Skipped because canvas doesn't work in JSDOM
- */
-describe.skip('OCR Performance', () => {
-  it('should complete OCR within reasonable time', async () => {
-    const worker = getOCRWorker()
-    await worker.initialize()
-
-    const canvas = document.createElement('canvas')
-    canvas.width = 800
-    canvas.height = 600
-
-    const startTime = Date.now()
-    await worker.recognize(canvas)
-    const duration = Date.now() - startTime
-
-    // Should complete within 5 seconds for a typical image
-    expect(duration).toBeLessThan(5000)
-
-    await terminateGlobalWorker()
-  }, 10000)
 })
