@@ -168,17 +168,24 @@ describe('OCR Integration Tests', () => {
   function compareArtifacts(
     parsed: Partial<Artifact>,
     expected: FixtureExpected,
+    regions: Array<{ regionName: string; text: string }>,
   ): Pick<TestResult['matched'], 'level' | 'rarity' | 'slot' | 'mainStat' | 'substats'> {
+    const rawFor = (name: string) => regions.find((r) => r.regionName === name)?.text.trim() ?? ''
+
     return {
-      level: assertField('level', parsed.level, expected.level),
+      level: assertField('level', parsed.level, expected.level, rawFor('level')),
       rarity: assertField('rarity', parsed.rarity, expected.rarity),
-      slot: assertField('slot', parsed.slot, expected.slot),
+      slot: assertField('slot', parsed.slot, expected.slot, rawFor('slotName')),
       mainStat:
-        assertField('mainStat.type', parsed.mainStat?.type, expected.mainStat?.type) &&
-        assertField('mainStat.value', parsed.mainStat?.value ?? 0, expected.mainStat?.value ?? 0, undefined, { tolerance: 0.5 }),
+        assertField('mainStat.type', parsed.mainStat?.type, expected.mainStat?.type, rawFor('mainStatName')) &&
+        assertField('mainStat.value', parsed.mainStat?.value ?? 0, expected.mainStat?.value ?? 0, rawFor('mainStatValue'), { tolerance: 0.5 }),
       substats: (() => {
         const parsedList = parsed.substats || []
         const expectedList = expected.substats || []
+        const rawSubstats = ['substat1', 'substat2', 'substat3', 'substat4']
+          .map((n) => rawFor(n))
+          .filter(Boolean)
+          .join(' | ')
         let matchCount = 0
         for (const es of expectedList) {
           const matched = parsedList.some(
@@ -206,6 +213,9 @@ describe('OCR Integration Tests', () => {
               console.warn(
                 `  ⚠️  substat "${es.type}" (expected ${es.value}): not found — parsed=[${parsedSummary}]`,
               )
+            }
+            if (rawSubstats) {
+              console.warn(`      raw OCR: [${rawSubstats}]`)
             }
           }
         }
@@ -357,7 +367,7 @@ describe('OCR Integration Tests', () => {
           regionResult.starDetection?.count as 3 | 4 | 5 | undefined,
         )
 
-        const coreMatched = compareArtifacts(parseResult.artifact, expected)
+        const coreMatched = compareArtifacts(parseResult.artifact, expected, regionResult.regions)
 
         const matched: TestResult['matched'] = {
           starCoords: starCoordsResult,
