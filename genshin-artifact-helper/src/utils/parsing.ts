@@ -7,7 +7,6 @@ import type {
   SubstatType,
   MainStatType,
   ArtifactSlot,
-  ArtifactRarity,
   Substat,
   OCRResult,
 } from '@/types/artifact'
@@ -214,44 +213,16 @@ function isSubstatType(type: string): type is SubstatType {
 
 /**
  * Parse artifact level from text
- * Examples: "+20", "+0", "Level 16"
+ * Examples of expected text: "+20", "+0", "20", "11"
  */
 export function parseLevel(text: string): number | null {
-  const patterns = [/\+(\d+)/, /Level\s*(\d+)/i, /Lv\.\s*(\d+)/i]
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern)
-    if (match && match[1]) {
-      return parseInt(match[1], 10)
-    }
+  const match = text.match(/\d\d?/)
+  const level = (match && match[0]) ? parseInt(match[0], 10) : NaN
+  if (!isNaN(level) && level >= 0 && level <= 20) {
+    return level
   }
-
   return null
 }
-
-/**
- * Parse artifact rarity from text or star symbols
- * Examples: "5", "★★★★★"
- */
-export function parseRarity(text: string): ArtifactRarity | null {
-  // Count star symbols
-  const starCount = (text.match(/[★⭐]/g) || []).length
-  if (starCount >= 3 && starCount <= 5) {
-    return starCount as ArtifactRarity
-  }
-
-  // Look for number
-  const match = text.match(/(\d)\s*[sS]tar/i) || text.match(/^(\d)$/)
-  if (match && match[1]) {
-    const num = parseInt(match[1], 10)
-    if (num >= 3 && num <= 5) {
-      return num as ArtifactRarity
-    }
-  }
-
-  return null
-}
-
 /**
  * Parse artifact slot from text
  */
@@ -266,120 +237,6 @@ export function parseSlot(text: string): ArtifactSlot | null {
 
   return null
 }
-
-/**
- * Parse complete artifact from OCR text
- */
-export function parseArtifact(ocrText: string): OCRResult {
-  const lines = ocrText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
-  const errors: string[] = []
-  let confidence = 1.0
-
-  // Correct OCR errors in all text
-  const correctedLines = lines.map(correctOCRErrors)
-
-  // Try to extract stats
-  const parsedStats: ParsedStat[] = []
-  for (const line of correctedLines) {
-    const stat = parseStatLine(line)
-    if (stat) {
-      const corrected = validateAndCorrectStat(stat)
-      parsedStats.push(corrected)
-      confidence = Math.min(confidence, corrected.confidence)
-    }
-  }
-
-  if (parsedStats.length === 0) {
-    errors.push('No stats could be parsed from OCR text')
-    confidence = 0
-  }
-
-  // Separate main stat (usually first or has highest value) and substats
-  let mainStat: { type: MainStatType; value: number } | undefined
-  const substats: Substat[] = []
-
-  // For now, assume first stat is main stat if we have multiple stats
-  if (parsedStats.length > 0) {
-    const first = parsedStats[0]
-    if (first) {
-      mainStat = {
-        type: first.type as MainStatType,
-        value: first.value,
-      }
-    }
-
-    // Rest are substats
-    for (let i = 1; i < parsedStats.length && i <= 4; i++) {
-      const stat = parsedStats[i]
-      if (stat && isSubstatType(stat.type)) {
-        // Check if the stat's source line or the next line contains "(unactivated)"
-        const statLineIndex = correctedLines.findIndex((l) => l === stat.originalText || l.includes(stat.originalText))
-        const nextLine = statLineIndex >= 0 ? (correctedLines[statLineIndex + 1] ?? '') : ''
-        const isUnactivated =
-          /unactivated/i.test(stat.originalText) || /unactivated/i.test(nextLine)
-        substats.push({
-          type: stat.type as SubstatType,
-          value: stat.value,
-          ...(isUnactivated ? { unactivated: true } : {}),
-        })
-      }
-    }
-  }
-
-  // Try to parse level
-  let level: number | undefined
-  for (const line of correctedLines) {
-    const parsedLevel = parseLevel(line)
-    if (parsedLevel !== null) {
-      level = parsedLevel
-      break
-    }
-  }
-
-  // Try to parse rarity
-  let rarity: ArtifactRarity | undefined
-  for (const line of correctedLines) {
-    const parsedRarity = parseRarity(line)
-    if (parsedRarity !== null) {
-      rarity = parsedRarity
-      break
-    }
-  }
-
-  // Try to parse slot
-  let slot: ArtifactSlot | undefined
-  for (const line of correctedLines) {
-    const parsedSlot = parseSlot(line)
-    if (parsedSlot !== null) {
-      slot = parsedSlot
-      break
-    }
-  }
-
-  // Build partial artifact
-  const artifact: Partial<Artifact> = {
-    level,
-    rarity,
-    slot,
-    mainStat,
-    substats: substats.length > 0 ? substats : undefined,
-  }
-
-  // Add warnings
-  if (!level) errors.push('Could not parse artifact level')
-  if (!rarity) errors.push('Could not parse artifact rarity')
-  if (!slot) errors.push('Could not parse artifact slot')
-  if (!mainStat) errors.push('Could not parse main stat')
-  if (substats.length === 0) errors.push('Could not parse any substats')
-
-  return {
-    artifact,
-    confidence,
-    rawText: ocrText,
-    errors,
-  }
-}
-
 /**
  * Parse artifact from region-based OCR results
  * More accurate than full-text parsing because each field is extracted from a specific region

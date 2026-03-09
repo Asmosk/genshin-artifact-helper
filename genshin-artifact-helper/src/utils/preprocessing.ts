@@ -248,33 +248,6 @@ export function upscale(canvas: HTMLCanvasElement, scale: number = 2): HTMLCanva
 
   return scaled
 }
-
-/**
- * Isolate white text (common in Genshin UI)
- * Useful for extracting text from colored backgrounds
- */
-export function isolateWhiteText(imageData: ImageData, threshold: number = 200): ImageData {
-  const data = imageData.data
-  const output = new ImageData(imageData.width, imageData.height)
-
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i] ?? 0
-    const g = data[i + 1] ?? 0
-    const b = data[i + 2] ?? 0
-
-    // Check if color is close to white
-    const isWhite = r > threshold && g > threshold && b > threshold
-    const value = isWhite ? 255 : 0
-
-    output.data[i] = value
-    output.data[i + 1] = value
-    output.data[i + 2] = value
-    output.data[i + 3] = 255
-  }
-
-  return output
-}
-
 /**
  * Remove dark backgrounds common in Genshin UI
  */

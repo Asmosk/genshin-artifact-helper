@@ -9,9 +9,7 @@ import {
   findNearestRollValue,
   validateAndCorrectStat,
   parseLevel,
-  parseRarity,
   parseSlot,
-  parseArtifact,
   parseArtifactFromRegions,
   type ParsedStat,
 } from '@/utils/parsing'
@@ -234,48 +232,14 @@ describe('parseLevel', () => {
     expect(parseLevel('+16')).toBe(16)
   })
 
-  it('should parse level with "Level" text', () => {
-    expect(parseLevel('Level 20')).toBe(20)
-    expect(parseLevel('Level: 16')).toBe(16)
-  })
-
-  it('should parse level with "Lv." abbreviation', () => {
-    expect(parseLevel('Lv. 20')).toBe(20)
-    expect(parseLevel('Lv.16')).toBe(16)
+  it('should parse level with garbage characters', () => {
+    expect(parseLevel('-20')).toBe(20);
+    expect(parseLevel('`Õ┐0')).toBe(0);
   })
 
   it('should return null for invalid input', () => {
     expect(parseLevel('Random text')).toBeNull()
     expect(parseLevel('')).toBeNull()
-  })
-})
-
-describe('parseRarity', () => {
-  it('should parse star symbols', () => {
-    expect(parseRarity('★★★★★')).toBe(5)
-    expect(parseRarity('★★★★')).toBe(4)
-    expect(parseRarity('★★★')).toBe(3)
-  })
-
-  it('should parse star emoji', () => {
-    expect(parseRarity('⭐⭐⭐⭐⭐')).toBe(5)
-  })
-
-  it('should parse text format', () => {
-    expect(parseRarity('5 star')).toBe(5)
-    expect(parseRarity('4star')).toBe(4)
-    expect(parseRarity('3 Star')).toBe(3)
-  })
-
-  it('should parse just number', () => {
-    expect(parseRarity('5')).toBe(5)
-    expect(parseRarity('4')).toBe(4)
-  })
-
-  it('should return null for invalid rarity', () => {
-    expect(parseRarity('2')).toBeNull()
-    expect(parseRarity('6')).toBeNull()
-    expect(parseRarity('Random')).toBeNull()
   })
 })
 
@@ -317,94 +281,6 @@ describe('parseSlot', () => {
   it('should return null for invalid slots', () => {
     expect(parseSlot('Random')).toBeNull()
     expect(parseSlot('')).toBeNull()
-  })
-})
-
-describe('parseArtifact', () => {
-  it('should parse complete artifact text', () => {
-    const ocrText = `
-      Emblem of Severed Fate
-      Circlet of Logos
-      ★★★★★
-      +20
-      CRIT Rate 31.1%
-      CRIT DMG+21.0%
-      ATK+16.9%
-      Energy Recharge+11.0%
-      DEF+37
-    `
-
-    const result = parseArtifact(ocrText)
-
-    expect(result.confidence).toBeGreaterThan(0)
-    expect(result.errors.length).toBeGreaterThan(0) // Some fields might not be parsed
-    expect(result.artifact.level).toBe(20)
-    expect(result.artifact.rarity).toBe(5)
-    expect(result.artifact.slot).toBe('Circlet')
-    expect(result.artifact.mainStat).toBeDefined()
-    expect(result.artifact.substats).toBeDefined()
-    expect(result.artifact.substats?.length).toBeGreaterThan(0)
-  })
-
-  it('should handle OCR errors and correct them', () => {
-    const ocrText = `
-      +2O
-      CRIT Rate+3.S%
-      ATK+I6.9%
-      HP+29B
-    `
-
-    const result = parseArtifact(ocrText)
-
-    expect(result.artifact.level).toBe(20)
-    const stats = result.artifact.substats || []
-    const atkStat = stats.find((s) => s.type === 'ATK%')
-    expect(atkStat?.value).toBeCloseTo(16.9, 1)
-  })
-
-  it('should return errors for missing fields', () => {
-    const ocrText = 'Random text with no stats'
-
-    const result = parseArtifact(ocrText)
-
-    expect(result.errors.length).toBeGreaterThan(0)
-    expect(result.confidence).toBe(0)
-  })
-
-  it('should handle partial data', () => {
-    const ocrText = `
-      +16
-      CRIT Rate+3.5%
-      CRIT DMG+7.0%
-    `
-
-    const result = parseArtifact(ocrText)
-
-    expect(result.artifact.level).toBe(16)
-    expect(result.artifact.substats).toBeDefined()
-    expect(result.errors).toContain('Could not parse artifact rarity')
-    expect(result.errors).toContain('Could not parse artifact slot')
-  })
-
-  it('should mark substat as unactivated when "(unactivated)" appears on next line', () => {
-    const ocrText = `
-      +0
-      CRIT Rate 31.1%
-      CRIT DMG+21.0%
-      ATK+16.9%
-      HP+239
-      (unactivated)
-    `
-
-    const result = parseArtifact(ocrText)
-
-    const hpStat = result.artifact.substats?.find((s) => s.type === 'HP')
-    expect(hpStat).toBeDefined()
-    expect(hpStat?.unactivated).toBe(true)
-
-    // Other substats should not be marked unactivated
-    const atkStat = result.artifact.substats?.find((s) => s.type === 'ATK%')
-    expect(atkStat?.unactivated).toBeUndefined()
   })
 })
 

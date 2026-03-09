@@ -5,8 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getOCRWorker, terminateGlobalWorker, type OCRProgressCallback } from '@/utils/ocr'
-import { parseArtifact, parseArtifactFromRegions } from '@/utils/parsing'
-import { preprocessForOCR } from '@/utils/preprocessing'
+import { parseArtifactFromRegions } from '@/utils/parsing'
 import type { OCRResult } from '@/types/artifact'
 import type { ScreenType, ArtifactRegionLayout, Rectangle, RegionOCRResult, PreprocessingOptions } from '@/types/ocr-regions'
 import { recognizeRegions } from '@/utils/ocr-regions'
@@ -74,79 +73,6 @@ export const useOCRStore = defineStore('ocr', () => {
   }
 
   /**
-   * Process an image with OCR
-   */
-  async function processImage(
-    canvas: HTMLCanvasElement,
-    options?: {
-      preprocess?: boolean
-      preprocessingOptions?: any
-    },
-  ): Promise<OCRResult> {
-    const startTime = Date.now()
-
-    try {
-      state.value = 'processing'
-      error.value = null
-      result.value = null
-      activeLayout.value = null
-      progress.value = 0
-      progressStatus.value = 'Processing image...'
-
-      // Get worker
-      const worker = getOCRWorker()
-
-      // Initialize if needed
-      if (!worker.initialized) {
-        progressStatus.value = 'Initializing OCR engine...'
-        await worker.initialize((p) => {
-          progress.value = Math.round(p.progress * 50) // Use first 50% for init
-          progressStatus.value = p.status
-        })
-      }
-
-      // Preprocess if enabled
-      let imageToProcess = canvas
-      if (options?.preprocess) {
-        progressStatus.value = 'Preprocessing image...'
-        const settingsStore = useSettingsStore()
-        imageToProcess = preprocessForOCR(
-          canvas,
-          options.preprocessingOptions || settingsStore.captureSettings.preprocessingOptions,
-        )
-        progress.value = 60
-      }
-
-      // Run OCR
-      progressStatus.value = 'Recognizing text...'
-      const ocrResult = await worker.recognize(imageToProcess, (p) => {
-        progress.value = 60 + Math.round(p.progress * 30) // Use 60-90% for OCR
-        progressStatus.value = `Recognizing text... ${Math.round(p.progress * 100)}%`
-      })
-
-      // Parse artifact data
-      progressStatus.value = 'Parsing artifact data...'
-      progress.value = 90
-      const parseResult = parseArtifact(ocrResult.data.text)
-
-      // Store result
-      result.value = parseResult
-      processingTime.value = Date.now() - startTime
-
-      state.value = 'complete'
-      progress.value = 100
-      progressStatus.value = 'Complete'
-
-      return parseResult
-    } catch (err) {
-      state.value = 'error'
-      error.value = err instanceof Error ? err.message : 'OCR processing failed'
-      processingTime.value = Date.now() - startTime
-      throw err
-    }
-  }
-
-  /**
    * Clear current result and reset state
    */
   function clearResult(): void {
@@ -177,9 +103,8 @@ export const useOCRStore = defineStore('ocr', () => {
    * Process image using region-based OCR
    * More accurate and faster than full-image OCR
    */
-  async function processImageWithRegions(
+  async function processImage(
     canvas: HTMLCanvasElement,
-    screenType?: ScreenType,
     debugPreprocessingOverrides?: Partial<PreprocessingOptions>,
   ): Promise<OCRResult> {
     const startTime = Date.now()
@@ -196,7 +121,7 @@ export const useOCRStore = defineStore('ocr', () => {
 
       // Determine screen type (auto-detect or use provided)
       let detectedScreenType: ScreenType
-      const configuredType = screenType ?? settingsStore.ocrSettings.regions.screenType
+      const configuredType = settingsStore.ocrSettings.regions.screenType
 
       if (configuredType === 'auto') {
         // TODO: Implement auto-detection
@@ -274,32 +199,6 @@ export const useOCRStore = defineStore('ocr', () => {
       console.error('Region-based OCR error:', err)
       throw err
     }
-  }
-
-  /**
-   * Process image with automatic method selection
-   * Uses region-based OCR if enabled, otherwise falls back to full-image
-   */
-  async function processImageAuto(
-    canvas: HTMLCanvasElement,
-    debugPreprocessingOverrides?: Partial<PreprocessingOptions>,
-  ): Promise<OCRResult> {
-    const settingsStore = useSettingsStore()
-
-    if (settingsStore.ocrSettings.regions.enabled) {
-      return processImageWithRegions(canvas, undefined, debugPreprocessingOverrides)
-    } else {
-      return processImage(canvas, { preprocess: true })
-    }
-  }
-
-  /**
-   * Retry processing with the same image
-   * Requires the image to be passed again
-   */
-  async function retry(canvas: HTMLCanvasElement, options?: { preprocess?: boolean }): Promise<OCRResult> {
-    clearResult()
-    return processImage(canvas, options)
   }
 
   /**
@@ -397,11 +296,8 @@ export const useOCRStore = defineStore('ocr', () => {
     // Actions
     initialize,
     processImage,
-    processImageWithRegions,
-    processImageAuto,
     clearResult,
     terminate,
-    retry,
     acceptResult,
     rejectResult,
     detectArtifactDescription,

@@ -441,8 +441,7 @@ async function sendToOCR(): Promise<void> {
 
     const overrides = debugPreprocessingEnabled.value ? debugPreprocessingOptions.value : undefined
 
-    // Use processImageAuto which automatically selects region-based or full-image OCR
-    await ocrStore.processImageAuto(imageToProcess, overrides)
+    await ocrStore.processImage(imageToProcess, overrides)
   } catch (error) {
     console.error('OCR processing failed:', error)
     alert('OCR processing failed. See console for details.')
