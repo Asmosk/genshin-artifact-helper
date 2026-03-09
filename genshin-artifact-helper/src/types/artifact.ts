@@ -64,6 +64,8 @@ export interface Substat {
   value: number
   /** Number of times this substat has been rolled (0 = initial roll) */
   rollCount?: number
+  /** Whether this substat is unactivated (level 0 artifact, 4th substat not yet unlocked) */
+  unactivated?: boolean
 }
 
 /**

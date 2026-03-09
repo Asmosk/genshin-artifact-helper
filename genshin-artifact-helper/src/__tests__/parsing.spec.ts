@@ -12,8 +12,10 @@ import {
   parseRarity,
   parseSlot,
   parseArtifact,
+  parseArtifactFromRegions,
   type ParsedStat,
 } from '@/utils/parsing'
+import type { RegionOCRResult } from '@/types/ocr-regions'
 
 describe('parseStatLine', () => {
   it('should parse CRIT Rate with percentage', () => {
@@ -382,5 +384,95 @@ describe('parseArtifact', () => {
     expect(result.artifact.substats).toBeDefined()
     expect(result.errors).toContain('Could not parse artifact rarity')
     expect(result.errors).toContain('Could not parse artifact slot')
+  })
+
+  it('should mark substat as unactivated when "(unactivated)" appears on next line', () => {
+    const ocrText = `
+      +0
+      CRIT Rate 31.1%
+      CRIT DMG+21.0%
+      ATK+16.9%
+      HP+239
+      (unactivated)
+    `
+
+    const result = parseArtifact(ocrText)
+
+    const hpStat = result.artifact.substats?.find((s) => s.type === 'HP')
+    expect(hpStat).toBeDefined()
+    expect(hpStat?.unactivated).toBe(true)
+
+    // Other substats should not be marked unactivated
+    const atkStat = result.artifact.substats?.find((s) => s.type === 'ATK%')
+    expect(atkStat?.unactivated).toBeUndefined()
+  })
+})
+
+describe('parseArtifactFromRegions', () => {
+  function makeRegion(regionName: string, text: string): RegionOCRResult {
+    return { regionName, text, confidence: 0.9, position: { x: 0, y: 0, width: 100, height: 20 } }
+  }
+
+  it('should mark substat as unactivated when region text contains "(unactivated)" inline', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '7.0'),
+      makeRegion('substat1', 'DEF+23'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'CRIT Rate+3.5%'),
+      makeRegion('substat4', 'HP+239(unactivated)'),
+    ]
+
+    const result = parseArtifactFromRegions(regions, 5)
+
+    const hpStat = result.artifact.substats?.find((s) => s.type === 'HP')
+    expect(hpStat).toBeDefined()
+    expect(hpStat?.unactivated).toBe(true)
+
+    const defStat = result.artifact.substats?.find((s) => s.type === 'DEF')
+    expect(defStat?.unactivated).toBeUndefined()
+  })
+
+  it('should mark substat as unactivated when region text contains "(unactivated)" on a separate line', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '7.0'),
+      makeRegion('substat1', 'DEF+23'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'CRIT Rate+3.5%'),
+      makeRegion('substat4', 'HP+239\n(unactivated)'),
+    ]
+
+    const result = parseArtifactFromRegions(regions, 5)
+
+    const hpStat = result.artifact.substats?.find((s) => s.type === 'HP')
+    expect(hpStat).toBeDefined()
+    expect(hpStat?.unactivated).toBe(true)
+  })
+
+  it('should not set unactivated for normal substats', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'CRIT Rate'),
+      makeRegion('mainStatValue', '31.1'),
+      makeRegion('substat1', 'CRIT DMG+7.77%'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'HP+239'),
+      makeRegion('substat4', 'DEF%+5.83%'),
+    ]
+
+    const result = parseArtifactFromRegions(regions, 5)
+
+    for (const substat of result.artifact.substats ?? []) {
+      expect(substat.unactivated).toBeUndefined()
+    }
   })
 })

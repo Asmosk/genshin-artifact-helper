@@ -312,9 +312,15 @@ export function parseArtifact(ocrText: string): OCRResult {
     for (let i = 1; i < parsedStats.length && i <= 4; i++) {
       const stat = parsedStats[i]
       if (stat && isSubstatType(stat.type)) {
+        // Check if the stat's source line or the next line contains "(unactivated)"
+        const statLineIndex = correctedLines.findIndex((l) => l === stat.originalText || l.includes(stat.originalText))
+        const nextLine = statLineIndex >= 0 ? (correctedLines[statLineIndex + 1] ?? '') : ''
+        const isUnactivated =
+          /unactivated/i.test(stat.originalText) || /unactivated/i.test(nextLine)
         substats.push({
           type: stat.type as SubstatType,
           value: stat.value,
+          ...(isUnactivated ? { unactivated: true } : {}),
         })
       }
     }
@@ -457,6 +463,8 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
       continue
     }
 
+    const isUnactivated = /unactivated/i.test(text)
+
     // Apply OCR error correction
     const correctedText = correctOCRErrors(text)
     const parsed = parseStatLine(correctedText)
@@ -466,6 +474,7 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
       substats.push({
         type: corrected.type as SubstatType,
         value: corrected.value,
+        ...(isUnactivated ? { unactivated: true } : {}),
       })
     } else {
       errors.push(`Could not parse substat ${i} from: "${text}"`)
