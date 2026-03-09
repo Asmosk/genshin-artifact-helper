@@ -41,6 +41,64 @@ function isStarColor(r: number, g: number, b: number, settings: StarDetectionSet
 }
 
 /**
+ * Sample a grid cell and count pixels matching the star color.
+ * Returns the match count and the coordinates of the first matched pixel.
+ */
+function sampleGridCell(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  gridSize: number,
+  step: number,
+  settings: StarDetectionSettings,
+): { matchCount: number; firstMatch: { x: number; y: number } } {
+  let matchCount = 0
+  const firstMatch = { x: -1, y: -1 }
+  for (let sy = 0; sy < gridSize; sy += step) {
+    for (let sx = 0; sx < gridSize; sx += step) {
+      const px = x + sx
+      const py = y + sy
+      if (px >= width || py >= height) continue
+      const idx = (py * width + px) * 4
+      if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
+        matchCount++
+        if (firstMatch.x === -1) {
+          firstMatch.x = px
+          firstMatch.y = py
+        }
+      }
+    }
+  }
+  return { matchCount, firstMatch }
+}
+
+/**
+ * Check whether any pixel in a square region around (targetX, centerY) matches the star color.
+ */
+function hasStarInRegion(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  targetX: number,
+  centerY: number,
+  searchRadius: number,
+  settings: StarDetectionSettings,
+): boolean {
+  for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+    for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+      const nx = targetX + dx
+      const ny = centerY + dy
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
+      const idx = (ny * width + nx) * 4
+      if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) return true
+    }
+  }
+  return false
+}
+
+/**
  * Internal helper: Detect stars in image data using grid-based sampling
  * Returns the star center coordinates and count if found
  */
@@ -53,30 +111,13 @@ function detectStarsInImageData(
 ): { center: { x: number; y: number }; count: number } | null {
   const gridSize = Math.max(1, Math.round(screenHeight * settings.gridSizePercent))
 
+  const step = Math.max(1, Math.floor(gridSize / 3))
+
   // 1. Grid-based sampling
   for (let y = 0; y < height; y += gridSize) {
     for (let x = 0; x < width; x += gridSize) {
       // 2. Sample multiple pixels from each grid cell
-      let matchCount = 0
-      const firstMatch = { x: -1, y: -1 }
-      const step = Math.max(1, Math.floor(gridSize / 3))
-
-      for (let sy = 0; sy < gridSize; sy += step) {
-        for (let sx = 0; sx < gridSize; sx += step) {
-          const px = x + sx
-          const py = y + sy
-          if (px >= width || py >= height) continue
-
-          const idx = (py * width + px) * 4
-          if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
-            matchCount++
-            if (firstMatch.x === -1) {
-              firstMatch.x = px
-              firstMatch.y = py
-            }
-          }
-        }
-      }
+      const { matchCount, firstMatch } = sampleGridCell(data, width, height, x, y, gridSize, step, settings)
 
       // 3. If enough pixels match, consider this a possible match
       if (matchCount >= settings.matchThreshold) {
@@ -151,40 +192,6 @@ export function detectStarsInFullScreen(
 
   return { stars, regionBounds }
 }
-
-/**
- * Detect stars in a given canvas (usually the 'rarity' region)
- * @param canvas - The cropped rarity region canvas
- * @param screenHeight - Original screen height to calculate absolute dimensions
- * @param settings - Optional detection settings (defaults to defaultStarDetectionSettings)
- */
-export function detectStars(
-  canvas: HTMLCanvasElement,
-  screenHeight: number,
-  settings: StarDetectionSettings = defaultStarDetectionSettings,
-): StarDetectionResult | null {
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return null
-
-  const width = canvas.width
-  const height = canvas.height
-  const imageData = ctx.getImageData(0, 0, width, height)
-  const data = imageData.data
-
-  const detection = detectStarsInImageData(data, width, height, screenHeight, settings)
-  if (!detection) return null
-
-  return {
-    count: Math.max(3, Math.min(5, detection.count)) as 3 | 4 | 5,
-    position: { x: detection.center.x, y: detection.center.y },
-    confidence: 0.9, // Heuristic confidence
-    bounds: {
-      width: Math.round(screenHeight * settings.starSizePercent),
-      height: Math.round(screenHeight * settings.starSizePercent),
-    },
-  }
-}
-
 /**
  * Find the center of a star starting from a matched pixel
  */
@@ -298,24 +305,7 @@ export function debugDetectStars(
 
   for (let y = 0; y < height; y += gridSize) {
     for (let x = 0; x < width; x += gridSize) {
-      let matchCount = 0
-      const firstMatch = { x: -1, y: -1 }
-
-      for (let sy = 0; sy < gridSize; sy += step) {
-        for (let sx = 0; sx < gridSize; sx += step) {
-          const px = x + sx
-          const py = y + sy
-          if (px >= width || py >= height) continue
-          const idx = (py * width + px) * 4
-          if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
-            matchCount++
-            if (firstMatch.x === -1) {
-              firstMatch.x = px
-              firstMatch.y = py
-            }
-          }
-        }
-      }
+      const { matchCount, firstMatch } = sampleGridCell(data, width, height, x, y, gridSize, step, settings)
 
       const isMatch = matchCount >= settings.matchThreshold
       // Detect center from the first qualifying block only
@@ -356,57 +346,15 @@ function countNeighborStars(
   const searchRadius = Math.max(3, Math.round(screenHeight * 0.005)) // 0.5% search radius
   let count = 1 // The one we found
 
-  // Check right
-  for (let i = 1; i < 5; i++) {
-    const targetX = centerX + i * dist
-    if (targetX >= width) break
-
-    // Sample multiple pixels around the expected position
-    let foundStar = false
-    for (let dy = -searchRadius; dy <= searchRadius && !foundStar; dy++) {
-      for (let dx = -searchRadius; dx <= searchRadius && !foundStar; dx++) {
-        const nx = targetX + dx
-        const ny = centerY + dy
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
-
-        const idx = (ny * width + nx) * 4
-        if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
-          foundStar = true
-        }
+  for (const dir of [1, -1]) {
+    for (let i = 1; i < 5; i++) {
+      const targetX = centerX + dir * i * dist
+      if (targetX < 0 || targetX >= width) break
+      if (hasStarInRegion(data, width, height, targetX, centerY, searchRadius, settings)) {
+        count++
+      } else {
+        break
       }
-    }
-
-    if (foundStar) {
-      count++
-    } else {
-      break
-    }
-  }
-
-  // Check left
-  for (let i = 1; i < 5; i++) {
-    const targetX = centerX - i * dist
-    if (targetX < 0) break
-
-    // Sample multiple pixels around the expected position
-    let foundStar = false
-    for (let dy = -searchRadius; dy <= searchRadius && !foundStar; dy++) {
-      for (let dx = -searchRadius; dx <= searchRadius && !foundStar; dx++) {
-        const nx = targetX + dx
-        const ny = centerY + dy
-        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
-
-        const idx = (ny * width + nx) * 4
-        if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
-          foundStar = true
-        }
-      }
-    }
-
-    if (foundStar) {
-      count++
-    } else {
-      break
     }
   }
 
