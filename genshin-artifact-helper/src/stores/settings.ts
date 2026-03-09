@@ -37,6 +37,8 @@ export interface PreprocessingOptions {
   genshinOptimized: boolean
   /** Background removal threshold (0-255) */
   backgroundThreshold: number
+  /** Invert colors after thresholding (white-on-black → black-on-white for Tesseract) */
+  invert: boolean
 }
 
 export interface CaptureSettings {
@@ -103,6 +105,7 @@ export const useSettingsStore = defineStore('settings', () => {
       scaleFactor: 1,
       genshinOptimized: true,
       backgroundThreshold: 160,
+      invert: false,
     },
   })
 
@@ -189,6 +192,7 @@ export const useSettingsStore = defineStore('settings', () => {
       scaleFactor: 2,
       genshinOptimized: true,
       backgroundThreshold: 160,
+      invert: false,
     }
     saveSettings()
   }

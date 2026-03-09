@@ -44,9 +44,6 @@ export interface OCRRegion {
   /** OCR processing mode for this region */
   ocrMode: OCRMode
 
-  /** Character whitelist for OCR (optional, mode-specific default used if not set) */
-  whitelist?: string
-
   /** Preprocessing overrides specific to this region */
   preprocessingOverrides?: Partial<PreprocessingOptions>
 
@@ -193,15 +190,6 @@ export interface RegionBasedOCRResult {
 
   /** Any warnings or issues encountered */
   warnings: string[]
-}
-
-/**
- * Character whitelist presets for different OCR modes
- */
-export const OCR_WHITELISTS: Record<OCRMode, string> = {
-  number: '0123456789.+', // Numbers and decimal point only
-  text: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ,\'-.', // Letters and basic punctuation
-  mixed: '0123456789.%+ ATKHPDEFCRITRateDmgElementalMasteryEnergyRchg', // Stats with values
 }
 
 /**

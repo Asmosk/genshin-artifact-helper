@@ -24,6 +24,7 @@ export const DEFAULT_PREPROCESSING: PreprocessingOptions = {
   scaleFactor: 2,
   genshinOptimized: false,
   backgroundThreshold: 160,
+  invert: false,
 }
 
 /**
@@ -73,15 +74,13 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
     slotName: createRegion(REGION_NAMES.SLOT_NAME,
       -0.009, -0.172, 0.125, 0.03,
       'text',
-      { whitelist: 'FloweriPumDathSnGbC ' },
     ),
 
     level: createRegion(
       REGION_NAMES.LEVEL,
       -0.006, 0.046, 0.028, 0.036,
-      'mixed',
+      'number',
       {
-        whitelist: '+0123456789',
         preprocessingOverrides: {
           genshinOptimized: true,
           backgroundThreshold: 230,
@@ -92,20 +91,17 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
       -0.008, -0.100, 0.104, 0.033,
       'text',
-      { whitelist: 'ATKDEFCRImgnyhlsBouP ' },
     ),
 
     mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE,
       -0.007, -0.073, 0.077, 0.05,
-      'mixed', {
-      whitelist: '0123456789.%'
-    }),
+      'mixed',
+    ),
 
     substat1: createRegion(REGION_NAMES.SUBSTAT_1,
       0.004, 0.092, 0.162, 0.04,
       'mixed',
       {
-        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
         preprocessingOverrides: {
           grayscale: true,
         }
@@ -115,7 +111,6 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       0.004, 0.127, 0.162, 0.04,
       'mixed',
       {
-        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
         preprocessingOverrides: {
           grayscale: true,
         }
@@ -125,7 +120,6 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       0.004, 0.163, 0.162, 0.04,
       'mixed',
       {
-        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
         preprocessingOverrides: {
           grayscale: true,
         }
@@ -137,7 +131,6 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       {
         optional: true,
         multiLine: true,
-        whitelist: '0123456789.ATKDEF%CRI mgnyhls+',
         preprocessingOverrides: {
           grayscale: true,
         }
@@ -178,8 +171,7 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     level: createRegion(
       REGION_NAMES.LEVEL,
       0.140, -0.085, 0.06, 0.03,
-      'mixed',
-      { whitelist: '+0123456789' },
+      'number',
     ),
 
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME, -0.030, 0.085, 0.18, 0.03, 'text'),
@@ -189,7 +181,6 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
       -0.030, 0.125, 0.12, 0.04,
       'mixed',
       {
-        whitelist: '0123456789.%+',
         preprocessingOverrides: {
           upscale: true,
           scaleFactor: 2,
@@ -239,8 +230,7 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
     level: createRegion(
       REGION_NAMES.LEVEL,
       0.160, -0.115, 0.07, 0.04,
-      'mixed',
-      { whitelist: '+0123456789' },
+      'number',
     ),
 
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME, -0.040, 0.085, 0.20, 0.04, 'text'),
@@ -250,7 +240,6 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
       -0.040, 0.135, 0.15, 0.05,
       'mixed',
       {
-        whitelist: '0123456789.%+',
         preprocessingOverrides: {
           upscale: true,
           scaleFactor: 2,

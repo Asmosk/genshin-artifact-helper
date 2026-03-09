@@ -163,6 +163,20 @@ function resetOptions() {
           Enhances text edges for better OCR
         </small>
       </div>
+
+      <div class="setting-item">
+        <label class="setting-label">
+          <input
+            type="checkbox"
+            :checked="options.invert"
+            @change="(e) => updateOption('invert', (e.target as HTMLInputElement).checked)"
+          >
+          <span>Invert Colors</span>
+        </label>
+        <small class="setting-description">
+          Flip black/white after thresholding (helps when text appears white-on-black)
+        </small>
+      </div>
     </div>
 
     <div class="settings-section">

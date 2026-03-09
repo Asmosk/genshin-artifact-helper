@@ -11,9 +11,7 @@ import type {
   OCRRegion,
   PreprocessingOptions,
 } from '@/types/ocr-regions'
-import { OCR_WHITELISTS } from '@/types/ocr-regions'
-import type { OCRConfig } from './ocr'
-import { getOCRWorker, DEFAULT_OCR_CONFIG } from './ocr'
+import { getOCRWorker } from './ocr'
 import { calculateAllRegionPositions } from './ocr-region-templates'
 import { cropCanvas, preprocessRegion, regionContainsText } from './region-extraction'
 import { detectStarsInFullScreen } from './star-detection'
@@ -50,23 +48,8 @@ async function processRegion(
     // 3. Apply preprocessing — layout defaults merged with any region-specific overrides, then debug overrides
     const preprocessed = preprocessRegion(cropped, region, layoutPreprocessingOptions, debugPreprocessingOverrides)
 
-    // 4. Configure OCR for this region
-    const ocrConfig: OCRConfig = {
-      ...DEFAULT_OCR_CONFIG,
-      whitelist: region.whitelist ?? OCR_WHITELISTS[region.ocrMode],
-    }
-
-    // For number-only regions, use more restrictive PSM
-    if (region.ocrMode === 'number') {
-      ocrConfig.psm = 7 // Single text line
-    } else if (region.multiLine) {
-      ocrConfig.psm = 6 // Uniform block
-    } else {
-      ocrConfig.psm = 7 // Single line
-    }
-
     // 5. Run OCR
-    const worker = getOCRWorker(ocrConfig)
+    const worker = getOCRWorker()
     if (!worker.initialized) {
       await worker.initialize()
     }

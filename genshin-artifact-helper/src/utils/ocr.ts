@@ -4,17 +4,9 @@
 
 import {createWorker, type RecognizeResult, type Worker} from 'tesseract.js'
 
-/**
- * OCR configuration optimized for Genshin artifact screenshots
- */
 export interface OCRConfig {
-  /** Language (default: 'eng') */
   lang?: string
-  /** Page Segmentation Mode (default: 6 = single uniform block) */
   psm?: number
-  /** Character whitelist for better accuracy */
-  whitelist?: string
-  /** Enable OEM (OCR Engine Mode) - default: 3 = both LSTM + legacy */
   oem?: number
 }
 
@@ -22,11 +14,9 @@ export interface OCRConfig {
  * Default OCR configuration for Genshin artifacts
  */
 export const DEFAULT_OCR_CONFIG: OCRConfig = {
-  lang: 'genshin',
-  psm: 6, // Single uniform block of text
-  // Whitelist: numbers, decimal, percent, plus, space, and common artifact stat characters
-  whitelist: '0123456789.%+ ATKHPDEFCRITRateDmgElementalMasteryEnergyRchgFlowerPlumeSndsGobletCirc',
-  oem: 3, // Default: use both LSTM and legacy engine
+  lang: 'genshin', // Custom data for genshin font
+  psm: 7, // Treat the image as a single text line
+  oem: 1, // Use LSTM only
 }
 
 /**
@@ -72,12 +62,11 @@ export class OCRWorker {
         }
       }
 
-      this.worker = await createWorker(this.config.lang || 'eng', this.config.oem || 3, workerOptions)
+      this.worker = await createWorker(this.config.lang, this.config.oem, workerOptions)
 
       // Set parameters (only non-init params)
       await this.worker.setParameters({
-        tessedit_pageseg_mode: String(this.config.psm || 6) as any,
-        tessedit_char_whitelist: this.config.whitelist || '',
+        tessedit_pageseg_mode: String(this.config.psm) as any,
       })
 
       this.isInitialized = true

@@ -807,6 +807,9 @@ async function sendToOCR(): Promise<void> {
                   <label>backgroundThreshold <span>{{ debugPreprocessingOptions.backgroundThreshold }}</span></label>
                   <input type="range" min="0" max="255" step="5" v-model.number="debugPreprocessingOptions.backgroundThreshold" />
                 </div>
+                <div class="preproc-bool-row">
+                  <label><input type="checkbox" v-model="debugPreprocessingOptions.invert" /> invert</label>
+                </div>
               </div>
             </div>
           </div>

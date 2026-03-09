@@ -12,6 +12,7 @@ import {
   adaptiveThreshold,
   upscale,
   removeBackground,
+  invertColors,
 } from './preprocessing'
 
 /**
@@ -155,6 +156,11 @@ export function preprocessRegion(
   // Threshold
   if (options.adaptive) {
     processImageData((img) => adaptiveThreshold(img, options.adaptiveBlockSize))
+  }
+
+  // Invert colors — correct polarity (white-on-black → black-on-white for Tesseract)
+  if (options.invert) {
+    processImageData(invertColors)
   }
 
   // Upscale (returns new canvas)

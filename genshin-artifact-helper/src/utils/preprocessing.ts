@@ -124,6 +124,24 @@ export function adaptiveThreshold(imageData: ImageData, blockSize: number = 11):
 }
 
 /**
+ * Invert image colors (black ↔ white)
+ * Use after thresholding to convert white-on-black to black-on-white for Tesseract
+ */
+export function invertColors(imageData: ImageData): ImageData {
+  const data = imageData.data
+  const output = new ImageData(imageData.width, imageData.height)
+
+  for (let i = 0; i < data.length; i += 4) {
+    output.data[i]     = 255 - (data[i] ?? 0)
+    output.data[i + 1] = 255 - (data[i + 1] ?? 0)
+    output.data[i + 2] = 255 - (data[i + 2] ?? 0)
+    output.data[i + 3] = data[i + 3] ?? 255
+  }
+
+  return output
+}
+
+/**
  * Median filter for noise reduction
  * @param kernelSize - Size of filter kernel (typically 3 or 5)
  */
@@ -312,6 +330,7 @@ export interface PreprocessingOptions {
   scaleFactor?: number
   genshinOptimized?: boolean
   backgroundThreshold?: number
+  invert?: boolean
 }
 
 /**
@@ -334,6 +353,7 @@ export function preprocessArtifactImage(
     scaleFactor = 2,
     genshinOptimized = true,
     backgroundThreshold = 80,
+    invert = false,
   } = options
 
   // Create a working copy
@@ -374,6 +394,11 @@ export function preprocessArtifactImage(
     processImageData(working, (img) => adaptiveThreshold(img, adaptiveBlockSize))
   } else {
     processImageData(working, (img) => threshold(img, 128))
+  }
+
+  // 6.5 Invert colors (after thresholding — correct polarity for Tesseract)
+  if (invert) {
+    processImageData(working, invertColors)
   }
 
   // 7. Upscale for better OCR
