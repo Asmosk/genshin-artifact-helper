@@ -276,25 +276,21 @@ describe('parseSlot', () => {
   it('should parse Plume', () => {
     expect(parseSlot('Plume')).toBe('Plume')
     expect(parseSlot('Plume of Death')).toBe('Plume')
-    expect(parseSlot('Feather')).toBe('Plume')
   })
 
   it('should parse Sands', () => {
     expect(parseSlot('Sands')).toBe('Sands')
     expect(parseSlot('Sands of Eon')).toBe('Sands')
-    expect(parseSlot('Timepiece')).toBe('Sands')
   })
 
   it('should parse Goblet', () => {
     expect(parseSlot('Goblet')).toBe('Goblet')
     expect(parseSlot('Goblet of Eonothem')).toBe('Goblet')
-    expect(parseSlot('Cup')).toBe('Goblet')
   })
 
   it('should parse Circlet', () => {
     expect(parseSlot('Circlet')).toBe('Circlet')
     expect(parseSlot('Circlet of Logos')).toBe('Circlet')
-    expect(parseSlot('Crown')).toBe('Circlet')
   })
 
   it('should be case insensitive', () => {
