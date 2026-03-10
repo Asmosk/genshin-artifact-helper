@@ -249,10 +249,10 @@ export function parseSlot(text: string): ArtifactSlot | null {
   const normalized = text.trim().toLowerCase()
 
   if (normalized.includes('flower')) return 'Flower'
-  if (normalized.includes('plume') || normalized.includes('feather')) return 'Plume'
-  if (normalized.includes('sands') || normalized.includes('timepiece')) return 'Sands'
-  if (normalized.includes('goblet') || normalized.includes('cup')) return 'Goblet'
-  if (normalized.includes('circlet') || normalized.includes('crown')) return 'Circlet'
+  if (normalized.includes('plume')) return 'Plume'
+  if (normalized.includes('sands')) return 'Sands'
+  if (normalized.includes('goblet')) return 'Goblet'
+  if (normalized.includes('circlet')) return 'Circlet'
 
   return null
 }
@@ -465,7 +465,6 @@ function parseStatType(text: string): MainStatType | SubstatType | null {
     'hp': 'HP',
     'def%': 'DEF%',
     'def': 'DEF',
-    'defense': 'DEF',
     'elemental mastery': 'Elemental Mastery',
     'energy recharge': 'Energy Recharge',
     'pyro dmg bonus': 'Pyro DMG Bonus',
