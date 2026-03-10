@@ -7,6 +7,7 @@ import {
   parseStatLine,
   correctOCRErrors,
   findNearestRollValue,
+  findNearestMainStatValue,
   validateAndCorrectStat,
   parseLevel,
   parseSlot,
@@ -307,6 +308,34 @@ describe('parseSlot', () => {
   })
 })
 
+describe('findNearestMainStatValue', () => {
+  it('exact match returns original value', () => {
+    expect(findNearestMainStatValue('CRIT Rate', 31.1, 5, 20)).toBe(31.1)
+  })
+
+  it('display rounding (diff < 0.2) keeps original value', () => {
+    // 5★ CRIT Rate at +20 = 31.1; 31.0 is diff 0.1 — within tolerance, keep as-is
+    expect(findNearestMainStatValue('CRIT Rate', 31.0, 5, 20)).toBe(31.0)
+  })
+
+  it('OCR error beyond display rounding snaps to expected value', () => {
+    // 5★ HP% at +20 = 46.6; 46.9 is diff 0.3 — beyond 0.2 tolerance, snap
+    expect(findNearestMainStatValue('HP%', 46.9, 5, 20)).toBe(46.6)
+  })
+
+  it('unknown type (DEF flat) returns original value unchanged', () => {
+    expect(findNearestMainStatValue('DEF', 100, 5, 20)).toBe(100)
+  })
+
+  it('level 0 values are validated correctly', () => {
+    expect(findNearestMainStatValue('HP', 717, 5, 0)).toBe(717)
+  })
+
+  it('4★ values are validated correctly', () => {
+    expect(findNearestMainStatValue('CRIT Rate', 23.2, 4, 16)).toBe(23.2)
+  })
+})
+
 describe('parseArtifactFromRegions', () => {
   function makeRegion(regionName: string, text: string): RegionOCRResult {
     return { regionName, text, confidence: 0.9, position: { x: 0, y: 0, width: 100, height: 20 } }
@@ -490,5 +519,104 @@ describe('parseArtifactFromRegions', () => {
     for (const substat of result.artifact.substats ?? []) {
       expect(substat.unactivated).toBeUndefined()
     }
+  })
+
+  it('valid main stat value produces no main stat error', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Circlet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'CRIT Rate'),
+      makeRegion('mainStatValue', '31.1'),
+      makeRegion('substat1', 'CRIT DMG+7.77%'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'HP+239'),
+      makeRegion('substat4', 'DEF%+5.83%'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.errors.some((e) => e.includes('Main stat value'))).toBe(false)
+  })
+
+  it('OCR-off main stat value (diff < 1.0) is silently corrected with no error', () => {
+    // 5★ CRIT Rate at +20 = 31.1; OCR reads 30.5 (diff 0.6 — snapped, no error)
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Circlet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'CRIT Rate'),
+      makeRegion('mainStatValue', '30.5'),
+      makeRegion('substat1', 'CRIT DMG+7.77%'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'HP+239'),
+      makeRegion('substat4', 'DEF%+5.83%'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.errors.some((e) => e.includes('Main stat value'))).toBe(false)
+    expect(result.artifact.mainStat?.value).toBe(31.1)
+  })
+
+  it('rollCount: DEF%+7.3 on 5★ is 1 roll (within display rounding of Tier-4 roll 7.29)', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Flower'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'HP'),
+      makeRegion('mainStatValue', '717'),
+      makeRegion('substat1', 'DEF+7.3%'),
+      makeRegion('substat2', 'ATK+15'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    const stat = result.artifact.substats?.find((s) => s.type === 'DEF%')
+    expect(stat).toBeDefined()
+    expect(stat?.rollCount).toBe(1)
+  })
+
+  it('rollCount: CRIT Rate+5.8 on 5★ is 2 rolls (mixed-tier combo 2.72+3.11=5.83 within rounding)', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Flower'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'HP'),
+      makeRegion('mainStatValue', '717'),
+      makeRegion('substat1', 'CRIT Rate+5.8%'),
+      makeRegion('substat2', 'ATK+15'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    const stat = result.artifact.substats?.find((s) => s.type === 'CRIT Rate')
+    expect(stat).toBeDefined()
+    expect(stat?.rollCount).toBe(2)
+  })
+
+  it('rollCount: CRIT DMG+9.9 on 4★ is 2 rolls (4★ max roll 6.22, ceil(9.9/6.22)=2)', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Flower'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'HP'),
+      makeRegion('mainStatValue', '645'),
+      makeRegion('substat1', 'CRIT DMG+9.9%'),
+      makeRegion('substat2', 'ATK+15'),
+    ]
+    const result = parseArtifactFromRegions(regions, 4)
+    const stat = result.artifact.substats?.find((s) => s.type === 'CRIT DMG')
+    expect(stat).toBeDefined()
+    expect(stat?.rollCount).toBe(2)
+  })
+
+  it('badly wrong main stat value (diff >= 1.0) produces a main stat error', () => {
+    // 5★ CRIT Rate at +20 = 31.1; OCR reads 29.5 (diff 1.6 — error added)
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Circlet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'CRIT Rate'),
+      makeRegion('mainStatValue', '29.5'),
+      makeRegion('substat1', 'CRIT DMG+7.77%'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'HP+239'),
+      makeRegion('substat4', 'DEF%+5.83%'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.errors.some((e) => e.includes('Main stat value'))).toBe(true)
   })
 })

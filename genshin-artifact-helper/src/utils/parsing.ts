@@ -7,6 +7,7 @@ import type {
   SubstatType,
   MainStatType,
   ArtifactSlot,
+  ArtifactRarity,
   Substat,
   OCRResult,
 } from '@/types/artifact'
@@ -16,8 +17,12 @@ import {
   SUBSTAT_ROLLS_3STAR,
   SUBSTAT_ROLLS_2STAR,
   SUBSTAT_ROLLS_1STAR,
+  MAIN_STAT_VALUES_5STAR,
+  MAIN_STAT_VALUES_4STAR,
+  MAIN_STAT_VALUES_3STAR,
+  MAIN_STAT_VALUES_2STAR,
+  MAIN_STAT_VALUES_1STAR,
 } from '@/types/artifact'
-import type { ArtifactRarity } from '@/types/artifact'
 import type { RegionOCRResult } from '@/types/ocr-regions'
 import { getRegionResultsMap } from './ocr-regions'
 
@@ -146,6 +151,38 @@ function getRollTable(rarity?: ArtifactRarity): Record<SubstatType, number[]> {
   if (rarity === 2) return SUBSTAT_ROLLS_2STAR
   if (rarity === 1) return SUBSTAT_ROLLS_1STAR
   return SUBSTAT_ROLLS // 5★ or unknown
+}
+
+/**
+ * Get the main stat value table for a given rarity
+ */
+function getMainStatTable(rarity: ArtifactRarity): Partial<Record<MainStatType, number[]>> {
+  if (rarity === 4) return MAIN_STAT_VALUES_4STAR
+  if (rarity === 3) return MAIN_STAT_VALUES_3STAR
+  if (rarity === 2) return MAIN_STAT_VALUES_2STAR
+  if (rarity === 1) return MAIN_STAT_VALUES_1STAR
+  return MAIN_STAT_VALUES_5STAR
+}
+
+/**
+ * Find the expected main stat value for a given type, rarity, and level.
+ * Returns the original value if the type has no table entry or the level is out of bounds.
+ * Snaps to the expected value if diff >= 0.2 (beyond display rounding tolerance).
+ */
+export function findNearestMainStatValue(
+  type: MainStatType,
+  value: number,
+  rarity: ArtifactRarity,
+  level: number,
+): number {
+  const table = getMainStatTable(rarity)
+  const values = table[type]
+  if (!values) return value
+  const expected = values[level]
+  if (expected === undefined) return value
+  const diff = Math.abs(value - expected)
+  if (diff < 0.2) return value
+  return expected
 }
 
 /**
@@ -347,6 +384,17 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
       }
     } else {
       errors.push(`Could not parse main stat from: name="${mainStatNameText}", value="${mainStatValueText}"`)
+    }
+  }
+
+  if (mainStat && rarity != null && level != null) {
+    const corrected = findNearestMainStatValue(mainStat.type, mainStat.value, rarity, level)
+    if (corrected !== mainStat.value) {
+      const diff = Math.abs(mainStat.value - corrected)
+      if (diff >= 1.0) {
+        errors.push(`Main stat value ${mainStat.value} does not match expected ${corrected} for +${level} ${rarity}★`)
+      }
+      mainStat = { ...mainStat, value: corrected }
     }
   }
 
