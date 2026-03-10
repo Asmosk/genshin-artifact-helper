@@ -5,7 +5,7 @@
 /**
  * Artifact rarity (star rating)
  */
-export type ArtifactRarity = 3 | 4 | 5
+export type ArtifactRarity = 1 | 2 | 3 | 4 | 5
 
 /**
  * Main stat types that can appear on artifacts
@@ -115,6 +115,70 @@ export const SUBSTAT_ROLLS: Record<SubstatType, number[]> = {
   DEF: [16.2, 18.52, 20.83, 23.15],
   'Elemental Mastery': [16.32, 18.65, 20.98, 23.31],
   'Energy Recharge': [4.53, 5.18, 5.83, 6.48],
+}
+
+/**
+ * Possible roll values for each substat type (for 3* artifacts)
+ */
+export const SUBSTAT_ROLLS_3STAR: Record<SubstatType, number[]> = {
+  'CRIT Rate': [1.63, 1.86, 2.1, 2.33],
+  'CRIT DMG': [3.26, 3.73, 4.2, 4.66],
+  'ATK%': [2.45, 2.8, 3.15, 3.5],
+  ATK: [6.54, 7.47, 8.4, 9.34],
+  'HP%': [2.45, 2.8, 3.15, 3.5],
+  HP: [100.38, 114.72, 129.06, 143.4],
+  'DEF%': [3.06, 3.5, 3.93, 4.37],
+  DEF: [7.78, 8.89, 10.0, 11.11],
+  'Elemental Mastery': [9.79, 11.19, 12.59, 13.99],
+  'Energy Recharge': [2.72, 3.11, 3.5, 3.89],
+}
+
+/**
+ * Possible roll values for each substat type (for 2* artifacts)
+ */
+export const SUBSTAT_ROLLS_2STAR: Record<SubstatType, number[]> = {
+  'CRIT Rate': [1.09, 1.32, 1.55],
+  'CRIT DMG': [2.18, 2.64, 3.11],
+  'ATK%': [1.63, 1.98, 2.33],
+  ATK: [3.27, 3.97, 4.67],
+  'HP%': [1.63, 1.98, 2.33],
+  HP: [50.19, 60.95, 71.7],
+  'DEF%': [2.04, 2.48, 2.91],
+  DEF: [3.89, 4.72, 5.56],
+  'Elemental Mastery': [6.53, 7.93, 9.33],
+  'Energy Recharge': [1.81, 2.2, 2.59],
+}
+
+/**
+ * Possible roll values for each substat type (for 1* artifacts)
+ */
+export const SUBSTAT_ROLLS_1STAR: Record<SubstatType, number[]> = {
+  'CRIT Rate': [0.78, 0.97],
+  'CRIT DMG': [1.55, 1.94],
+  'ATK%': [1.17, 1.46],
+  ATK: [1.56, 1.95],
+  'HP%': [1.17, 1.46],
+  HP: [23.9, 29.88],
+  'DEF%': [1.46, 1.82],
+  DEF: [1.85, 2.31],
+  'Elemental Mastery': [4.66, 5.83],
+  'Energy Recharge': [1.3, 1.62],
+}
+
+/**
+ * Possible roll values for each substat type (for 4* artifacts)
+ */
+export const SUBSTAT_ROLLS_4STAR: Record<SubstatType, number[]> = {
+  'CRIT Rate': [2.18, 2.49, 2.80, 3.11],
+  'CRIT DMG': [4.35, 4.97, 5.60, 6.22],
+  'ATK%': [3.26, 3.73, 4.20, 4.66],
+  ATK: [10.89, 12.45, 14.00, 15.56],
+  'HP%': [3.26, 3.73, 4.20, 4.66],
+  HP: [167.3, 191.2, 215.1, 239.0],
+  'DEF%': [4.08, 4.66, 5.25, 5.83],
+  DEF: [12.96, 14.82, 16.67, 18.52],
+  'Elemental Mastery': [13.06, 14.92, 16.79, 18.65],
+  'Energy Recharge': [3.63, 4.14, 4.66, 5.18],
 }
 
 /**

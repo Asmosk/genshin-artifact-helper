@@ -10,7 +10,14 @@ import type {
   Substat,
   OCRResult,
 } from '@/types/artifact'
-import { SUBSTAT_ROLLS } from '@/types/artifact'
+import {
+  SUBSTAT_ROLLS,
+  SUBSTAT_ROLLS_4STAR,
+  SUBSTAT_ROLLS_3STAR,
+  SUBSTAT_ROLLS_2STAR,
+  SUBSTAT_ROLLS_1STAR,
+} from '@/types/artifact'
+import type { ArtifactRarity } from '@/types/artifact'
 import type { RegionOCRResult } from '@/types/ocr-regions'
 import { getRegionResultsMap } from './ocr-regions'
 
@@ -131,10 +138,22 @@ export function correctOCRErrors(text: string): string {
 }
 
 /**
+ * Get the roll table for a given rarity
+ */
+function getRollTable(rarity?: ArtifactRarity): Record<SubstatType, number[]> {
+  if (rarity === 4) return SUBSTAT_ROLLS_4STAR
+  if (rarity === 3) return SUBSTAT_ROLLS_3STAR
+  if (rarity === 2) return SUBSTAT_ROLLS_2STAR
+  if (rarity === 1) return SUBSTAT_ROLLS_1STAR
+  return SUBSTAT_ROLLS // 5★ or unknown
+}
+
+/**
  * Find nearest valid roll value for a substat
  */
-export function findNearestRollValue(type: SubstatType, value: number): number {
-  const validRolls = SUBSTAT_ROLLS[type]
+export function findNearestRollValue(type: SubstatType, value: number, rarity?: ArtifactRarity): number {
+  const rollTable = getRollTable(rarity)
+  const validRolls = rollTable[type]
   if (!validRolls || validRolls.length === 0) {
     return value
   }
@@ -174,13 +193,13 @@ export function findNearestRollValue(type: SubstatType, value: number): number {
 /**
  * Validate and correct a parsed stat
  */
-export function validateAndCorrectStat(stat: ParsedStat): ParsedStat {
+export function validateAndCorrectStat(stat: ParsedStat, rarity?: ArtifactRarity): ParsedStat {
   // Only correct substats (not main stats)
   if (!isSubstatType(stat.type)) {
     return stat
   }
 
-  const correctedValue = findNearestRollValue(stat.type as SubstatType, stat.value)
+  const correctedValue = findNearestRollValue(stat.type as SubstatType, stat.value, rarity)
 
   if (correctedValue !== stat.value) {
     return {
@@ -238,10 +257,41 @@ export function parseSlot(text: string): ArtifactSlot | null {
   return null
 }
 /**
+ * Minimum number of substats guaranteed for a given rarity and level
+ */
+function minExpectedSubstats(rarity: ArtifactRarity | undefined, level: number | null | undefined): number {
+  const lvl = level ?? 0
+  if (rarity === 5) return lvl >= 4 ? 4 : 3
+  if (rarity === 4) return lvl >= 8 ? 4 : lvl >= 4 ? 3 : 2
+  if (rarity === 3) return lvl >= 12 ? 4 : lvl >= 8 ? 3 : lvl >= 4 ? 2 : 1
+  if (rarity === 2) return lvl >= 4 ? 1 : 0
+  return 0 // 1★ or unknown
+}
+
+/**
+ * Maximum total roll events for a given rarity and level
+ */
+function maxTotalRolls(rarity: ArtifactRarity, level: number): number {
+  const maxStart = rarity === 5 ? 4 : rarity === 4 ? 3 : rarity === 3 ? 2 : rarity === 2 ? 1 : 0
+  return maxStart + Math.floor(level / 4)
+}
+
+/**
+ * Minimum number of rolls needed to produce a substat value
+ */
+function minRollsNeeded(type: SubstatType, value: number, rarity: ArtifactRarity): number {
+  const table = getRollTable(rarity)
+  const rolls = table[type]
+  if (!rolls || rolls.length === 0) return 1
+  const maxRoll = rolls[rolls.length - 1]!
+  return Math.ceil(value / maxRoll)
+}
+
+/**
  * Parse artifact from region-based OCR results
  * More accurate than full-text parsing because each field is extracted from a specific region
  */
-export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starCount?: 3 | 4 | 5): OCRResult {
+export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starCount?: 1 | 2 | 3 | 4 | 5): OCRResult {
   const regions = getRegionResultsMap(regionResults)
   const errors: string[] = []
 
@@ -308,8 +358,7 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
     const text = regions.get(regionName)?.text || ''
 
     if (!text.trim()) {
-      if (i <= 3) {
-        // First 3 substats should always exist TODO: not true, 5 star artifacts have 4, 4 star have 2 or 3, 3 star have 1 or 2
+      if (i <= minExpectedSubstats(rarity, level)) {
         errors.push(`Substat ${i} is empty`)
       }
       continue
@@ -328,14 +377,26 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
     const parsed = parseStatLine(correctedText)
 
     if (parsed && isSubstatType(parsed.type)) {
-      const corrected = validateAndCorrectStat(parsed)
+      const corrected = validateAndCorrectStat(parsed, rarity)
       substats.push({
         type: corrected.type as SubstatType,
         value: corrected.value,
+        rollCount: rarity ? minRollsNeeded(corrected.type as SubstatType, corrected.value, rarity) : undefined,
         ...(isUnactivated ? { unactivated: true } : {}),
       })
     } else {
       errors.push(`Could not parse substat ${i} from: "${text}"`)
+    }
+  }
+
+  // Validate total rolls
+  if (rarity != null && level != null && substats.length > 0) {
+    const maxRolls = maxTotalRolls(rarity, level)
+    const minRolls = substats.reduce((sum, s) => sum + minRollsNeeded(s.type, s.value, rarity), 0)
+    if (minRolls > maxRolls) {
+      errors.push(
+        `Substat values require at least ${minRolls} rolls but +${level} ${rarity}★ artifact allows at most ${maxRolls}`,
+      )
     }
   }
 

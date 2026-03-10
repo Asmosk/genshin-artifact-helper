@@ -182,6 +182,33 @@ describe('findNearestRollValue', () => {
     expect(findNearestRollValue('ATK', 19)).toBeCloseTo(19.45, 0)
   })
 
+  it('should use 5* roll table by default or when rarity=5', () => {
+    // 2.5 is 0.22 away from the nearest 5* roll (2.72) → beyond 0.2 tolerance → snaps to 2.72
+    // 5* rolls: [2.72, 3.11, 3.5, 3.89]
+    expect(findNearestRollValue('CRIT Rate', 2.5, 5)).toBe(2.72)
+    expect(findNearestRollValue('CRIT Rate', 2.5, undefined)).toBe(2.72)
+  })
+
+  it('should use 4* roll table when rarity=4', () => {
+    // 2.5 is only 0.01 away from the 4* Tier 2 roll (2.49) → within 0.2 tolerance → keep as-is
+    // 4* rolls: [2.18, 2.49, 2.80, 3.11]
+    expect(findNearestRollValue('CRIT Rate', 2.5, 4)).toBe(2.5)
+  })
+
+  it('should use 3* roll table when rarity=3', () => {
+    // 3* CRIT Rate: [1.63, 1.86, 2.10, 2.33]
+    // 2.5 is within 0.2 of 2.33 → keep as-is
+    expect(findNearestRollValue('CRIT Rate', 2.5, 3)).toBe(2.5)
+    // 1.9 is within 0.2 of 1.86 → keep as-is (would snap to 2.18 with 4* table)
+    expect(findNearestRollValue('CRIT Rate', 1.9, 3)).toBe(1.9)
+    // 2.10 is exact 3* Tier 3 → keep as-is
+    expect(findNearestRollValue('CRIT Rate', 2.1, 3)).toBe(2.1)
+  })
+
+  it('should snap to 4* table when 3* value is out of tolerance for 4*', () => {
+    // 1.9 is 0.28 away from nearest 4* roll (2.18) → snaps to 2.18
+    expect(findNearestRollValue('CRIT Rate', 1.9, 4)).toBe(2.18)
+  })
 })
 
 describe('validateAndCorrectStat', () => {
@@ -209,6 +236,14 @@ describe('validateAndCorrectStat', () => {
     const corrected = validateAndCorrectStat(stat)
     expect(corrected.value).toBe(3.89)
     expect(corrected.confidence).toBe(stat.confidence)
+  })
+
+  it('should use 4* rolls when rarity=4 is passed', () => {
+    // 2.8 is exact 4* Tier 3 → no correction
+    const stat: ParsedStat = { type: 'CRIT Rate', value: 2.8, confidence: 0.9, originalText: 'CRIT Rate+2.8%' }
+    const corrected = validateAndCorrectStat(stat, 4)
+    expect(corrected.value).toBe(2.8)
+    expect(corrected.confidence).toBe(0.9)
   })
 
 })
@@ -318,6 +353,123 @@ describe('parseArtifactFromRegions', () => {
     const hpStat = result.artifact.substats?.find((s) => s.type === 'HP')
     expect(hpStat).toBeDefined()
     expect(hpStat?.unactivated).toBe(true)
+  })
+
+  it('4* at level 0 with only 2 substats should not produce substat 3 empty error', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Flower'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'HP'),
+      makeRegion('mainStatValue', '717'),
+      makeRegion('substat1', 'ATK+15'),
+      makeRegion('substat2', 'DEF+18'),
+    ]
+    const result = parseArtifactFromRegions(regions, 4)
+    expect(result.errors.some((e) => e.includes('Substat 3 is empty'))).toBe(false)
+  })
+
+  it('4* at level 8 with only 2 substats should produce substat 3 and 4 empty errors', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Flower'),
+      makeRegion('level', '+8'),
+      makeRegion('mainStatName', 'HP'),
+      makeRegion('mainStatValue', '1348'),
+      makeRegion('substat1', 'ATK+15'),
+      makeRegion('substat2', 'DEF+18'),
+    ]
+    const result = parseArtifactFromRegions(regions, 4)
+    expect(result.errors.some((e) => e.includes('Substat 3 is empty'))).toBe(true)
+    expect(result.errors.some((e) => e.includes('Substat 4 is empty'))).toBe(true)
+  })
+
+  it('5* at level 0 with only 3 substats should not produce substat 4 empty error', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '7.0'),
+      makeRegion('substat1', 'DEF+23'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'CRIT Rate+3.5%'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.errors.some((e) => e.includes('Substat 4 is empty'))).toBe(false)
+  })
+
+  it('5* at level 4 with only 3 substats should produce substat 4 empty error', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+4'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '9.0'),
+      makeRegion('substat1', 'DEF+23'),
+      makeRegion('substat2', 'ATK+19'),
+      makeRegion('substat3', 'CRIT Rate+3.5%'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.errors.some((e) => e.includes('Substat 4 is empty'))).toBe(true)
+  })
+
+  it('2* at level 0 should not require any substats', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Flower'),
+      makeRegion('level', '+0'),
+      makeRegion('mainStatName', 'HP'),
+      makeRegion('mainStatValue', '430'),
+    ]
+    const result = parseArtifactFromRegions(regions, 2)
+    expect(result.errors.some((e) => e.includes('Substat 1 is empty'))).toBe(false)
+  })
+
+  it('2* at level 4 with no substats should produce substat 1 empty error', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Flower'),
+      makeRegion('level', '+4'),
+      makeRegion('mainStatName', 'HP'),
+      makeRegion('mainStatValue', '645'),
+    ]
+    const result = parseArtifactFromRegions(regions, 2)
+    expect(result.errors.some((e) => e.includes('Substat 1 is empty'))).toBe(true)
+  })
+
+  it('5* +20 artifact with impossibly high substat values should produce total rolls error', () => {
+    // 5* +20: maxStart=4, floor(20/4)=5 → maxTotalRolls=9
+    // CRIT DMG max 5* roll is 7.77; ceil(46.62/7.77)=6 rolls each × 2 substats = 12 > 9
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '46.6'),
+      makeRegion('substat1', 'CRIT DMG+46.62%'),
+      makeRegion('substat2', 'CRIT DMG+46.62%'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.errors.some((e) => e.includes('rolls'))).toBe(true)
+  })
+
+  it('5* +20 artifact with valid substat values should not produce total rolls error', () => {
+    // maxTotalRolls for 5* +20 = 4 + 5 = 9
+    // 4 substats each needing ceil(value/maxRoll) ≤ 9 total
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', 'Test Artifact'),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '46.6'),
+      makeRegion('substat1', 'CRIT DMG+7.77%'),
+      makeRegion('substat2', 'CRIT Rate+3.89%'),
+      makeRegion('substat3', 'ATK+19'),
+      makeRegion('substat4', 'HP+239'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.errors.some((e) => e.includes('rolls'))).toBe(false)
   })
 
   it('should not set unactivated for normal substats', () => {
