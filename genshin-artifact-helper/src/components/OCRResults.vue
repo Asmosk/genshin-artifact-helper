@@ -12,6 +12,18 @@ const confidence = computed(() => ocrStore.result?.confidence || 0)
 const errors = computed(() => ocrStore.result?.errors || [])
 const rawText = computed(() => ocrStore.result?.rawText || '')
 
+const totalRolls = computed(() => {
+  if (!artifact.value?.substats) return 0
+  return artifact.value.substats.reduce((sum, s) => sum + (s.rollCount ?? 1), 0)
+})
+
+const maxRolls = computed(() => {
+  const a = artifact.value
+  if (!a?.rarity || a.level == null) return undefined
+  const maxStart = a.rarity === 5 ? 4 : a.rarity === 4 ? 3 : a.rarity === 3 ? 2 : a.rarity === 2 ? 1 : 0
+  return maxStart + Math.floor(a.level / 4)
+})
+
 const confidenceColor = computed(() => {
   const conf = confidence.value
   if (conf >= 0.8) return '#4ade80' // green
@@ -130,14 +142,24 @@ const showRawText = computed({
           <div v-if="artifact?.substats && artifact.substats.length > 0" class="substats">
             <span class="label">Substats:</span>
             <div class="substats-list">
-              <div v-for="(substat, index) in artifact.substats" :key="index" class="substat-item">
+              <div
+                v-for="(substat, index) in artifact.substats"
+                :key="index"
+                class="substat-item"
+                :class="{ 'substat-item--unactivated': substat.unactivated }"
+              >
+                <span v-if="substat.rollCount !== undefined" class="roll-badge">{{ substat.rollCount }}</span>
                 <span class="stat-type" :style="{ color: getStatColor(substat.type) }">
                   {{ substat.type }}
                 </span>
+                <span v-if="substat.unactivated" class="unactivated-badge">(unactivated)</span>
                 <span class="stat-number">
                   +{{ formatStatValue(substat.type, substat.value) }}
                 </span>
               </div>
+            </div>
+            <div v-if="artifact?.substats && artifact.substats.length > 0" class="total-rolls">
+              Total rolls: {{ totalRolls }}{{ maxRolls !== undefined ? ` / ${maxRolls}` : '' }}
             </div>
           </div>
         </div>
@@ -312,10 +334,46 @@ const showRawText = computed({
 
 .substat-item {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.375rem 0.5rem;
   background: #1e293b;
   border-radius: 4px;
+}
+
+.substat-item .stat-number {
+  margin-left: auto;
+}
+
+.substat-item--unactivated {
+  opacity: 0.5;
+}
+
+.unactivated-badge {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-style: italic;
+}
+
+.roll-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+  border-radius: 50%;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.total-rolls {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #94a3b8;
+  text-align: right;
 }
 
 .raw-text-section {
