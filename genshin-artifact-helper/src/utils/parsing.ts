@@ -195,31 +195,28 @@ export function findNearestRollValue(type: SubstatType, value: number, rarity?: 
     return value
   }
 
-  // For multi-roll stats, we need to find combinations
-  // For now, just return the value if it's close to a multiple of valid rolls
   let nearest = value
   let minDiff = Infinity
 
-  // Check single roll values
-  for (const roll of validRolls) {
-    const diff = Math.abs(value - roll)
-    if (diff < minDiff) {
-      minDiff = diff
-      nearest = roll
-    }
-
-    // Check multiples (up to 6 rolls)
-    for (let count = 2; count <= 6; count++) {
-      const multiple = roll * count
-      const multiDiff = Math.abs(value - multiple)
-      if (multiDiff < minDiff) {
-        minDiff = multiDiff
-        nearest = multiple
+  // Search all sums of 1-6 rolls (mixed tiers allowed, e.g. 2.72+3.11 = 5.83).
+  // Prunes branches where the running sum already exceeds value + tolerance.
+  function search(rollsLeft: number, current: number) {
+    for (const roll of validRolls) {
+      const sum = Math.round((current + roll) * 100) / 100
+      const diff = Math.abs(value - sum)
+      if (diff < minDiff) {
+        minDiff = diff
+        nearest = sum
+      }
+      if (rollsLeft > 1 && sum < value + 0.2) {
+        search(rollsLeft - 1, sum)
       }
     }
   }
 
-  // Keep original if deviation is too small (game UI rounding, e.g. 5.18 displays as 5.2)
+  search(6, 0)
+
+  // Keep original if within display rounding tolerance (e.g. 5.18 displays as 5.2)
   if (minDiff < 0.2) {
     return value
   }
@@ -321,7 +318,9 @@ function minRollsNeeded(type: SubstatType, value: number, rarity: ArtifactRarity
   const rolls = table[type]
   if (!rolls || rolls.length === 0) return 1
   const maxRoll = rolls[rolls.length - 1]!
-  return Math.ceil(value / maxRoll)
+  // Subtract display-rounding tolerance before ceiling so that values within 0.2
+  // of a roll boundary (e.g. 7.3 ≈ one Tier-4 roll of 7.29) aren't bumped up by one.
+  return Math.max(1, Math.ceil((value - 0.19) / maxRoll))
 }
 
 /**
