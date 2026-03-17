@@ -129,8 +129,8 @@ export interface RegionOCRResult {
  * Star detection result (for rarity and anchoring)
  */
 export interface StarDetectionResult {
-  /** Number of stars detected (3, 4, or 5) */
-  count: 3 | 4 | 5
+  /** Number of stars detected (1–5) */
+  count: 1 | 2 | 3 | 4 | 5
 
   /** Position of the star row (top-left corner) */
   position: {

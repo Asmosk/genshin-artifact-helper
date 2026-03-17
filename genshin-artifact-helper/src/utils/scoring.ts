@@ -31,11 +31,6 @@ const TOTAL_SUBSTATS = 4
  */
 const MAX_ROLLS_5_STAR = 6
 
-/**
- * Maximum number of rolls a 4* artifact can get
- * Starting roll + 4 bonus rolls at levels 4, 8, 12, 16
- */
-const MAX_ROLLS_4_STAR = 5
 
 /**
  * Calculate the score for a single substat
@@ -60,8 +55,7 @@ export function calculateSubstatScore(substat: Substat): number {
  * @returns Number of remaining rolls
  */
 export function getRemainingRolls(artifact: Artifact): number {
-  const maxRolls = artifact.rarity === 5 ? MAX_ROLLS_5_STAR : MAX_ROLLS_4_STAR
-  const maxLevel = artifact.rarity === 5 ? 20 : 16
+  const maxLevel = artifact.rarity === 5 ? 20 : artifact.rarity === 4 ? 16 : artifact.rarity === 3 ? 12 : 4
 
   // Calculate how many rolls have been used
   // Level 0: All substats get initial roll
