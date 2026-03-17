@@ -166,48 +166,78 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
   regions: {
     pieceName: createRegion(
       REGION_NAMES.PIECE_NAME,
-      -0.030, -0.085, 0.22, 0.07,
+      -0.01, -0.15, 0.165, 0.048,
       'text',
-      {
-        multiLine: true,
-        preprocessingOverrides: {
-          adaptive: true,
-          contrastFactor: 2.0,
-        },
-      },
     ),
 
-    slotName: createRegion(REGION_NAMES.SLOT_NAME, -0.030, 0.025, 0.18, 0.03, 'text'),
+    slotName: createRegion(REGION_NAMES.SLOT_NAME,
+      -0.009, -0.099, 0.125, 0.03,
+      'text',
+    ),
 
     level: createRegion(
       REGION_NAMES.LEVEL,
-      0.140, -0.085, 0.06, 0.03,
+      -0.006, 0.025, 0.028, 0.036,
       'number',
-    ),
-
-    mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME, -0.030, 0.085, 0.18, 0.03, 'text'),
-
-    mainStatValue: createRegion(
-      REGION_NAMES.MAIN_STAT_VALUE,
-      -0.030, 0.125, 0.12, 0.04,
-      'mixed',
       {
         preprocessingOverrides: {
-          upscale: true,
-          scaleFactor: 2,
-        },
+          genshinOptimized: true,
+          backgroundThreshold: 230,
+        }
       },
     ),
 
-    substat1: createRegion(REGION_NAMES.SUBSTAT_1, -0.030, 0.205, 0.22, 0.035, 'mixed'),
-    substat2: createRegion(REGION_NAMES.SUBSTAT_2, -0.030, 0.255, 0.22, 0.035, 'mixed'),
-    substat3: createRegion(REGION_NAMES.SUBSTAT_3, -0.030, 0.305, 0.22, 0.035, 'mixed'),
-    substat4: createRegion(REGION_NAMES.SUBSTAT_4, -0.030, 0.355, 0.22, 0.035, 'mixed', {
-      optional: true,
-      multiLine: true,
-    }),
+    mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
+      -0.004, -0.058, 0.104, 0.033,
+      'text',
+    ),
+
+    mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE,
+      0.111, -0.062, 0.043, 0.04,
+      'mixed',
+    ),
+
+    substat1: createRegion(REGION_NAMES.SUBSTAT_1,
+      0.002, 0.061, 0.154, 0.04,
+      'mixed',
+      {
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      },
+    ),
+    substat2: createRegion(REGION_NAMES.SUBSTAT_2,
+      0.002, 0.092, 0.154, 0.04,
+      'mixed',
+      {
+        optional: true,
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      },
+    ),
+    substat3: createRegion(REGION_NAMES.SUBSTAT_3,
+      0.002, 0.123, 0.154, 0.04,
+      'mixed',
+      {
+        optional: true,
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      },
+    ),
+    substat4: createRegion(REGION_NAMES.SUBSTAT_4,
+      0.002, 0.156, 0.154, 0.04,
+      'mixed',
+      {
+        optional: true,
+        preprocessingOverrides: {
+          grayscale: true,
+        }
+      }
+    ),
     substat4SecondLine: createRegion(REGION_NAMES.SUBSTAT_4_2,
-      0.004, 0.199, 0.162, 0.04,
+      -0.006, 0.183, 0.162, 0.034,
       'mixed',
       {
         optional: true,
