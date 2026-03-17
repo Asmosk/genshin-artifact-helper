@@ -193,9 +193,9 @@ export const useOCRStore = defineStore('ocr', () => {
       const parseResult = parseArtifactFromRegions(regionResult.regions, regionResult.starDetection?.count)
 
       // Add region-specific metadata
-      ;(parseResult as any).regionBased = true
-      ;(parseResult as any).screenType = detectedScreenType
-      ;(parseResult as any).regionCount = regionResult.regions.length
+      parseResult.regionBased = true
+      parseResult.screenType = detectedScreenType
+      parseResult.regionCount = regionResult.regions.length
 
       // Store result
       result.value = parseResult

@@ -461,4 +461,10 @@ export interface OCRResult {
   rawText: string
   /** Any errors or warnings */
   errors: string[]
+  /** Whether this result was produced by region-based OCR */
+  regionBased?: boolean
+  /** Screen type used for region-based OCR */
+  screenType?: string
+  /** Number of regions processed */
+  regionCount?: number
 }
