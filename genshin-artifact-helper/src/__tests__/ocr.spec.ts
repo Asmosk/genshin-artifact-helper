@@ -14,6 +14,7 @@ import { getOCRWorker, terminateGlobalWorker } from '@/utils/ocr'
 import { recognizeRegions } from '@/utils/ocr-regions'
 import { parseArtifactFromRegions } from '@/utils/parsing'
 import { getRegionTemplate } from '@/utils/ocr-region-templates'
+import { detectScreenType } from '@/utils/screen-type-detection'
 import type { Artifact } from '@/types/artifact'
 import type { ScreenType } from '@/types/ocr-regions'
 
@@ -331,7 +332,8 @@ describe('OCR Integration Tests', () => {
         }
 
         // --- Screen type assertion ---
-        // Auto-detection is NOT implemented — screen type is read from fixture and passed manually.
+        // Screen type is passed manually to getRegionTemplate (pipeline correctness test).
+        // Additionally, validate auto-detection using the known starCoords from ground truth.
         const detectedScreen = regionResult.screenType
         let screenTypeResult: boolean | 'not-detected'
         if (expected.screen) {
@@ -339,8 +341,24 @@ describe('OCR Integration Tests', () => {
           screenTypeResult = ok ? true : 'not-detected'
           if (!ok) {
             console.warn(
-              `  ⚠️  ${imageFile} screenType: expected="${expected.screen}", got="${detectedScreen}" (manually provided — auto-detection NOT implemented)`,
+              `  ⚠️  ${imageFile} screenType: expected="${expected.screen}", got="${detectedScreen}"`,
             )
+          }
+
+          // Validate detectScreenType using known star position from ground truth
+          if (expected.starCoords) {
+            const autoDetected = detectScreenType(
+              canvas,
+              expected.starCoords,
+              canvas.width,
+              canvas.height,
+            )
+            if (autoDetected !== expected.screen) {
+              console.warn(
+                `  ⚠️  ${imageFile} auto-detectScreenType: expected="${expected.screen}", got="${autoDetected}"`,
+              )
+            }
+            expect(autoDetected, `${imageFile}: detectScreenType mismatch`).toBe(expected.screen)
           }
         } else {
           screenTypeResult = 'not-detected'

@@ -11,6 +11,7 @@ import type { ScreenType, ArtifactRegionLayout, Rectangle, RegionOCRResult, Prep
 import { recognizeRegions } from '@/utils/ocr-regions'
 import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
 import { detectStarsInFullScreen } from '@/utils/star-detection'
+import { detectScreenType } from '@/utils/screen-type-detection'
 import { useSettingsStore } from './settings'
 
 /**
@@ -124,10 +125,20 @@ export const useOCRStore = defineStore('ocr', () => {
       const configuredType = settingsStore.ocrSettings.regions.screenType
 
       if (configuredType === 'auto') {
-        // TODO: Implement auto-detection
-        // For now, default to inventory
-        progressStatus.value = 'Auto-detecting screen type...'
-        detectedScreenType = 'inventory'
+        progressStatus.value = 'Detecting screen type...'
+        const starResult = detectStarsInFullScreen(canvas, canvas.height)
+        if (!starResult) {
+          state.value = 'error'
+          error.value = 'No artifact detected on screen'
+          processingTime.value = Date.now() - startTime
+          return { artifact: {}, confidence: 0, rawText: '', errors: ['No artifact detected on screen'] } as OCRResult
+        }
+        detectedScreenType = detectScreenType(
+          canvas,
+          starResult.stars.position,
+          canvas.width,
+          canvas.height,
+        )
         progress.value = 10
       } else {
         detectedScreenType = configuredType as ScreenType
