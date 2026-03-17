@@ -200,8 +200,14 @@ export function findNearestRollValue(type: SubstatType, value: number, rarity?: 
 
   // Search all sums of 1-6 rolls (mixed tiers allowed, e.g. 2.72+3.11 = 5.83).
   // Prunes branches where the running sum already exceeds value + tolerance.
+  let iterations = 0
+  const MAX_ITERATIONS = 100_000
+
   function search(rollsLeft: number, current: number) {
     for (const roll of validRolls) {
+      if (minDiff === 0 || iterations >= MAX_ITERATIONS) return
+
+      iterations++
       const sum = Math.round((current + roll) * 100) / 100
       const diff = Math.abs(value - sum)
       if (diff < minDiff) {

@@ -210,6 +210,21 @@ describe('findNearestRollValue', () => {
     // 1.9 is 0.28 away from nearest 4* roll (2.18) → snaps to 2.18
     expect(findNearestRollValue('CRIT Rate', 1.9, 4)).toBe(2.18)
   })
+
+  it('should handle high roll sums without issues', () => {
+    // 6 max rolls of CRIT Rate: 3.89 * 6 = 23.34
+    // This exercises the deepest recursion path
+    expect(() => findNearestRollValue('CRIT Rate', 23.34)).not.toThrow()
+    expect(findNearestRollValue('CRIT Rate', 23.34)).toBe(23.34)
+  })
+
+  it('should terminate quickly on exact match', () => {
+    // Exact single roll — should exit immediately
+    const start = performance.now()
+    findNearestRollValue('CRIT Rate', 3.89)
+    const elapsed = performance.now() - start
+    expect(elapsed).toBeLessThan(10)
+  })
 })
 
 describe('validateAndCorrectStat', () => {
