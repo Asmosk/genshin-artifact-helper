@@ -176,6 +176,13 @@ export const useOCRStore = defineStore('ocr', () => {
 
       if (regionResult.starDetection) {
         detectedAnchorPx.value = { x: regionResult.starDetection.position.x, y: regionResult.starDetection.position.y }
+        // Update overlay positions to match the layout actually used
+        detectedRegionPositions.value = calculateAllRegionPositions(
+          layout,
+          canvas.width,
+          canvas.height,
+          detectedAnchorPx.value,
+        )
       }
       regionResults.value = regionResult.regions
 
@@ -256,9 +263,9 @@ export const useOCRStore = defineStore('ocr', () => {
       })
       console.log('[Star Detection] Star region bounds (px):', detection.regionBounds)
 
-      const screenType = settingsStore.ocrSettings.regions.screenType === 'auto'
-        ? 'inventory'
-        : settingsStore.ocrSettings.regions.screenType as any
+      const screenType: ScreenType = settingsStore.ocrSettings.regions.screenType === 'auto'
+        ? detectScreenType(canvas, detection.stars.position, canvas.width, canvas.height)
+        : settingsStore.ocrSettings.regions.screenType as ScreenType
       const layout = getRegionTemplate(screenType)
 
       // Use detected first-star center as the canonical anchor point

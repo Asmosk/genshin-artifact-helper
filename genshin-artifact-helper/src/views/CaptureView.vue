@@ -125,28 +125,27 @@ const activeLayout = computed(() => {
   if (showRegionOffsetSetup.value && regionEditorLayout.value) {
     return regionEditorLayout.value
   }
-  if (ocrStore.activeLayout) {
+
+  const configuredType = settingsStore.ocrSettings.regions.screenType
+
+  if (configuredType === 'auto') {
+    // Don't draw anything until processImage has detected the screen type
+    if (debugShowOCRRegions.value) {
+      return ocrStore.activeLayout ?? getRegionTemplate('inventory')
+    }
     return ocrStore.activeLayout
   }
-  // If no active layout from OCR run, but we have a screen type selected, show that template for preview
-  if (settingsStore.ocrSettings.regions.enabled && settingsStore.ocrSettings.regions.screenType !== 'auto') {
+
+  // Manual mode: always use the selected template so the dropdown
+  // change is reflected immediately (never let stale ocrStore.activeLayout win)
+  if (settingsStore.ocrSettings.regions.enabled || debugShowOCRRegions.value) {
     try {
-      return getRegionTemplate(settingsStore.ocrSettings.regions.screenType as any)
-    } catch (e) {
+      return getRegionTemplate(configuredType as ScreenType)
+    } catch {
       return null
     }
   }
-  // Debug: return template even when region OCR is disabled
-  if (debugShowOCRRegions.value) {
-    const type = settingsStore.ocrSettings.regions.screenType === 'auto'
-      ? 'inventory'
-      : settingsStore.ocrSettings.regions.screenType as any
-    try {
-      return getRegionTemplate(type)
-    } catch (e) {
-      return null
-    }
-  }
+
   return null
 })
 
@@ -235,10 +234,11 @@ function drawOCRRegions(
     ctx.fill()
   }
 
-  const detectedPositions = showRegionOffsetSetup.value ? null : ocrStore.detectedRegionPositions
+  const anchor = !showRegionOffsetSetup.value ? ocrStore.detectedAnchorPx : null
+  const detectedPositions = anchor ? calculateAllRegionPositions(layout, width, height, anchor) : null
 
   if (detectedPositions) {
-    // Draw all OCR regions in orange from computed pixel positions (skip starAnchor — shown by drawStarDetectionData)
+    // Draw all OCR regions in orange, positions recomputed from current layout + detected anchor
     for (const [name, region] of Object.entries(layout.regions)) {
       const pos = detectedPositions.get((region as any).name)
       if (pos) {
@@ -246,9 +246,7 @@ function drawOCRRegions(
         drawRegionPixels(pos.x, pos.y, pos.width, pos.height, label, '#ff9900')
       }
     }
-    if (ocrStore.detectedAnchorPx) {
-      drawAnchorMarker(ocrStore.detectedAnchorPx.x, ocrStore.detectedAnchorPx.y)
-    }
+    drawAnchorMarker(anchor!.x, anchor!.y)
   } else {
     // No detection yet — draw all regions from template anchorPoint in green
     const anchor = layout.anchorPoint
