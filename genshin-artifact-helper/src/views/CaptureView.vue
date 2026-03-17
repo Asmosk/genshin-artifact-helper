@@ -15,8 +15,13 @@ import type { ArtifactRegionLayout, ScreenType, PreprocessingOptions } from '@/t
 import {
   debugDetectStars,
   defaultStarDetectionSettings,
+  legacyStarCenterFinder,
+  regionStarCenterFinder,
+  makeLegacyDetector,
+  projectionStarDetector,
   type StarDetectionDebugData,
   type StarDetectionSettings,
+  type StarDetectorFn,
 } from '@/utils/star-detection'
 
 const captureStore = useCaptureStore()
@@ -35,8 +40,16 @@ const showOCRRegions = ref(true)
 const showDebugMenu = ref(false)
 const debugShowOCRRegions = ref(false)
 const debugShowStarDetection = ref(false)
+const debugShowHistograms = ref(false)
 const debugStarData = ref<StarDetectionDebugData | null>(null)
 const starSettings = ref<StarDetectionSettings>({ ...defaultStarDetectionSettings })
+const starAlgorithmMode = ref<'legacy' | 'projection'>('projection')
+const starCenterFinderMode = ref<'legacy' | 'region'>('legacy')
+const starDetector = computed<StarDetectorFn>(() => {
+  if (starAlgorithmMode.value === 'projection') return projectionStarDetector
+  const finder = starCenterFinderMode.value === 'region' ? regionStarCenterFinder : legacyStarCenterFinder
+  return makeLegacyDetector(finder)
+})
 
 // Debug preprocessing overrides state
 const debugPreprocessingEnabled = ref(false)
@@ -157,10 +170,14 @@ function redrawPreview(): void {
   if (debugShowStarDetection.value && debugStarData.value) {
     drawStarDetectionData(ctx, debugStarData.value)
   }
+
+  if (debugShowHistograms.value && debugStarData.value) {
+    drawHistograms(ctx, debugStarData.value, previewCanvasRef.value.width, previewCanvasRef.value.height)
+  }
 }
 
 watch(
-  [() => captureStore.capturedImage, activeLayout, showOCRRegions, debugShowOCRRegions, debugShowStarDetection, () => ocrStore.detectedRarityBounds, starSettings],
+  [() => captureStore.capturedImage, activeLayout, showOCRRegions, debugShowOCRRegions, debugShowStarDetection, debugShowHistograms, () => ocrStore.detectedRarityBounds, starSettings, starCenterFinderMode, starAlgorithmMode],
   async ([, , , , newDebugStar]) => {
     await nextTick()
     if (newDebugStar) {
@@ -252,21 +269,81 @@ function drawOCRRegions(
 function drawStarDetectionData(ctx: CanvasRenderingContext2D, data: StarDetectionDebugData): void {
   const { blocks, detectedCenter, starCount } = data
 
+  // ── Legacy grid blocks ─────────────────────────────────────────────────────
   for (const block of blocks) {
-    if (block.isMatch) {
-      // Candidate block — star color threshold met
-      ctx.fillStyle = 'rgba(255, 204, 50, 0.35)'
-      ctx.strokeStyle = 'rgba(255, 204, 50, 0.9)'
+    if (block.isConfirmed) {
+      // Confirmed star — both tests passed
+      ctx.fillStyle = 'rgba(149,255,50,0.35)'
+      ctx.strokeStyle = 'rgba(94,255,50,0.9)'
+    } else if (block.isPass1Match) {
+      // Passed Only First Test
+      ctx.fillStyle = 'rgba(255, 80, 80, 0.25)'
+      ctx.strokeStyle = 'rgba(255, 80, 80, 0.7)'
     } else {
-      // Some star pixels but below threshold
-      ctx.fillStyle = 'rgba(255, 160, 0, 0.18)'
-      ctx.strokeStyle = 'rgba(255, 160, 0, 0.55)'
+      // Some star pixels but below for passing first test
+      ctx.fillStyle = 'rgba(158,158,158,0.18)'
+      ctx.strokeStyle = 'rgba(55,55,55,0.58)'
     }
     ctx.lineWidth = 1
     ctx.fillRect(block.x, block.y, block.size, block.size)
     ctx.strokeRect(block.x, block.y, block.size, block.size)
   }
 
+  // ── Projection overlays ────────────────────────────────────────────────────
+  if (data.projColumnRegions !== null) {
+    const canvasH = ctx.canvas.height
+
+    // Column regions (step 3 output) — amber boxes along bottom edge
+    ctx.lineWidth = 1
+    for (const col of data.projColumnRegions) {
+      const w = col.end - col.start + 1
+      const boxH = Math.round(canvasH * 0.06)
+      ctx.fillStyle = 'rgba(255, 180, 0, 0.30)'
+      ctx.strokeStyle = 'rgba(255, 180, 0, 0.70)'
+      ctx.fillRect(col.start, canvasH - boxH, w, boxH)
+      ctx.strokeRect(col.start, canvasH - boxH, w, boxH)
+    }
+
+    // Row region bands (step 5 output) — horizontal light overlay
+    if (data.projRowRegions) {
+      for (const row of data.projRowRegions) {
+        ctx.fillStyle = 'rgba(0, 220, 255, 0.08)'
+        ctx.fillRect(0, row.start, ctx.canvas.width, row.end - row.start + 1)
+      }
+    }
+
+    // Peak Y line
+    if (data.projPeakY !== null) {
+      ctx.strokeStyle = 'rgba(0, 220, 255, 0.80)'
+      ctx.lineWidth = 1.5
+      ctx.setLineDash([4, 4])
+      ctx.beginPath()
+      ctx.moveTo(0, data.projPeakY)
+      ctx.lineTo(ctx.canvas.width, data.projPeakY)
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+
+    // Final star regions (step 9) — bright gold boxes along bottom, labeled
+    if (data.projStarRegions) {
+      ctx.font = 'bold 11px sans-serif'
+      ctx.textBaseline = 'bottom'
+      for (let i = 0; i < data.projStarRegions.length; i++) {
+        const col = data.projStarRegions[i]!
+        const w = col.end - col.start + 1
+        const boxH = Math.round(canvasH * 0.04)
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.45)'
+        ctx.strokeStyle = 'rgba(255, 215, 0, 1.0)'
+        ctx.lineWidth = 1.5
+        ctx.fillRect(col.start, canvasH - boxH, w, boxH)
+        ctx.strokeRect(col.start, canvasH - boxH, w, boxH)
+        ctx.fillStyle = 'rgba(255, 215, 0, 1.0)'
+        ctx.fillText(`${i + 1}`, col.start + 1, canvasH - boxH - 1)
+      }
+    }
+  }
+
+  // ── Detected center crosshair ──────────────────────────────────────────────
   if (detectedCenter) {
     const cs = 12
     ctx.strokeStyle = '#ff2222'
@@ -292,10 +369,44 @@ function drawStarDetectionData(ctx: CanvasRenderingContext2D, data: StarDetectio
   }
 }
 
+function drawHistograms(
+  ctx: CanvasRenderingContext2D,
+  data: StarDetectionDebugData,
+  width: number,
+  height: number,
+): void {
+  const { columnHistogram, rowHistogram } = data
+  const maxCol = Math.max(1, ...columnHistogram)
+  const maxRow = Math.max(1, ...rowHistogram)
+  const colBarMaxH = Math.round(height * 0.20)
+  const rowBarMaxW = Math.round(width * 0.20)
+
+  ctx.fillStyle = 'rgba(255, 204, 50, 0.55)'
+
+  for (let x = 0; x < columnHistogram.length; x++) {
+    const barH = Math.round(((columnHistogram[x] ?? 0) / maxCol) * colBarMaxH)
+    if (barH > 0) ctx.fillRect(x, height - barH, 1, barH)
+  }
+
+  for (let y = 0; y < rowHistogram.length; y++) {
+    const barW = Math.round(((rowHistogram[y] ?? 0) / maxRow) * rowBarMaxW)
+    if (barW > 0) ctx.fillRect(width - barW, y, barW, 1)
+  }
+
+  ctx.strokeStyle = 'rgba(255, 204, 50, 0.35)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(0, height - colBarMaxH)
+  ctx.lineTo(width, height - colBarMaxH)
+  ctx.moveTo(width - rowBarMaxW, 0)
+  ctx.lineTo(width - rowBarMaxW, height)
+  ctx.stroke()
+}
+
 function runStarDetectionDebug(): void {
   const canvas = captureStore.capturedImage?.original
   if (canvas) {
-    debugStarData.value = debugDetectStars(canvas, canvas.height, starSettings.value)
+    debugStarData.value = debugDetectStars(canvas, canvas.height, starSettings.value, starDetector.value)
   } else {
     debugStarData.value = null
   }
@@ -684,6 +795,14 @@ async function sendToOCR(): Promise<void> {
             </button>
             <button
               class="btn btn-secondary debug-btn"
+              :class="{ 'debug-btn-active': debugShowHistograms }"
+              :disabled="!debugShowStarDetection || !debugStarData"
+              @click="debugShowHistograms = !debugShowHistograms"
+            >
+              Draw Color Histograms
+            </button>
+            <button
+              class="btn btn-secondary debug-btn"
               :class="{ 'debug-btn-active': showRegionOffsetSetup }"
               @click="toggleRegionOffsetSetup"
             >
@@ -709,6 +828,23 @@ async function sendToOCR(): Promise<void> {
                 <span>Star Detection Settings</span>
                 <button class="btn btn-small" @click="starSettings = { ...defaultStarDetectionSettings }">Reset Defaults</button>
               </div>
+              <!-- Algorithm selector -->
+              <div class="star-setting-row">
+                <label>Algorithm <span>{{ starAlgorithmMode }}</span></label>
+                <div class="star-finder-toggle">
+                  <button
+                    class="btn btn-small"
+                    :class="{ 'star-finder-active': starAlgorithmMode === 'legacy' }"
+                    @click="starAlgorithmMode = 'legacy'"
+                  >Legacy</button>
+                  <button
+                    class="btn btn-small"
+                    :class="{ 'star-finder-active': starAlgorithmMode === 'projection' }"
+                    @click="starAlgorithmMode = 'projection'"
+                  >Projection</button>
+                </div>
+              </div>
+              <!-- Common settings -->
               <div class="star-color-preview-row">
                 <span>Star Color:</span>
                 <div
@@ -731,28 +867,97 @@ async function sendToOCR(): Promise<void> {
               </div>
               <div class="star-setting-row">
                 <label>Color Tolerance <span>{{ starSettings.colorTolerance }}</span></label>
-                <input type="range" min="1" max="100" step="1" v-model.number="starSettings.colorTolerance" />
-              </div>
-              <div class="star-setting-row">
-                <label>Grid Size % <span>{{ starSettings.gridSizePercent.toFixed(4) }}</span></label>
-                <input type="range" min="0.005" max="0.05" step="0.0005" v-model.number="starSettings.gridSizePercent" />
+                <input type="range" min="0" max="100" step="1" v-model.number="starSettings.colorTolerance" />
               </div>
               <div class="star-setting-row">
                 <label>Star Size % <span>{{ starSettings.starSizePercent.toFixed(4) }}</span></label>
                 <input type="range" min="0.01" max="0.08" step="0.001" v-model.number="starSettings.starSizePercent" />
               </div>
               <div class="star-setting-row">
-                <label>Center Square % <span>{{ starSettings.centerSquarePercent.toFixed(4) }}</span></label>
-                <input type="range" min="0.005" max="0.04" step="0.0005" v-model.number="starSettings.centerSquarePercent" />
-              </div>
-              <div class="star-setting-row">
                 <label>Star Distance % <span>{{ starSettings.starDistancePercent.toFixed(4) }}</span></label>
-                <input type="range" min="0.01" max="0.1" step="0.001" v-model.number="starSettings.starDistancePercent" />
+                <input type="range" min="0.005" max="0.1" step="0.0005" v-model.number="starSettings.starDistancePercent" />
               </div>
-              <div class="star-setting-row">
-                <label>Match Threshold <span>{{ starSettings.matchThreshold }}</span></label>
-                <input type="range" min="1" max="20" step="1" v-model.number="starSettings.matchThreshold" />
-              </div>
+              <!-- Legacy-specific settings -->
+              <template v-if="starAlgorithmMode === 'legacy'">
+                <div class="star-setting-row">
+                  <label>Center Finder <span>{{ starCenterFinderMode }}</span></label>
+                  <div class="star-finder-toggle">
+                    <button
+                      class="btn btn-small"
+                      :class="{ 'star-finder-active': starCenterFinderMode === 'legacy' }"
+                      @click="starCenterFinderMode = 'legacy'"
+                    >Legacy</button>
+                    <button
+                      class="btn btn-small"
+                      :class="{ 'star-finder-active': starCenterFinderMode === 'region' }"
+                      @click="starCenterFinderMode = 'region'"
+                    >Region</button>
+                  </div>
+                </div>
+                <div class="star-setting-row">
+                  <label>Grid Size % <span>{{ starSettings.gridSizePercent.toFixed(4) }}</span></label>
+                  <input type="range" min="0.002" max="0.05" step="0.0005" v-model.number="starSettings.gridSizePercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Pass 1 Sample %<span>{{ starSettings.pass1SamplePercent.toFixed(2) }}</span></label>
+                  <input type="range" min="0.005" max="1" step="0.005" v-model.number="starSettings.pass1SamplePercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Pass 1 Threshold <span>{{ starSettings.pass1MatchThreshold }}</span></label>
+                  <input type="range" min="0.005" max="1" step="0.005" v-model.number="starSettings.pass1MatchThreshold" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Pass 2 Sample %<span>{{ starSettings.pass2SamplePercent.toFixed(2) }}</span></label>
+                  <input type="range" min="0.005" max="1" step="0.005" v-model.number="starSettings.pass2SamplePercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Pass 2 Threshold <span>{{ starSettings.pass2MatchThreshold }}</span></label>
+                  <input type="range" min="0.005" max="1" step="0.005" v-model.number="starSettings.pass2MatchThreshold" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Pass 3 Sample %<span>{{ starSettings.pass3SamplePercent.toFixed(2) }}</span></label>
+                  <input type="range" min="0.005" max="1" step="0.005" v-model.number="starSettings.pass3SamplePercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Pass 3 Threshold <span>{{ starSettings.pass3MatchThreshold }}</span></label>
+                  <input type="range" min="0.005" max="1" step="0.005" v-model.number="starSettings.pass3MatchThreshold" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Confirm Threshold <span>{{ starSettings.confirmThreshold.toFixed(2) }}</span></label>
+                  <input type="range" min="0.005" max="1" step="0.005" v-model.number="starSettings.confirmThreshold" />
+                </div>
+              </template>
+              <!-- Projection-specific settings -->
+              <template v-else>
+                <div class="star-setting-row">
+                  <label>Col Min % <span>{{ starSettings.projColMinPercent.toFixed(4) }}</span></label>
+                  <input type="range" min="0.005" max="0.1" step="0.001" v-model.number="starSettings.projColMinPercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Col Max % <span>{{ starSettings.projColMaxPercent.toFixed(4) }}</span></label>
+                  <input type="range" min="0.005" max="0.1" step="0.001" v-model.number="starSettings.projColMaxPercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Col Min Pixels <span>{{ starSettings.projColMinPixels }}</span></label>
+                  <input type="range" min="1" max="20" step="1" v-model.number="starSettings.projColMinPixels" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Row Min % <span>{{ starSettings.projRowMinPercent.toFixed(4) }}</span></label>
+                  <input type="range" min="0.005" max="0.1" step="0.001" v-model.number="starSettings.projRowMinPercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Row Max % <span>{{ starSettings.projRowMaxPercent.toFixed(4) }}</span></label>
+                  <input type="range" min="0.005" max="0.1" step="0.001" v-model.number="starSettings.projRowMaxPercent" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Spacing Tolerance <span>{{ starSettings.projSpacingTolerance.toFixed(2) }}</span></label>
+                  <input type="range" min="0.01" max="0.5" step="0.01" v-model.number="starSettings.projSpacingTolerance" />
+                </div>
+                <div class="star-setting-row">
+                  <label>Y Window (px) <span>{{ starSettings.projYWindowPx }}</span></label>
+                  <input type="range" min="0" max="10" step="1" v-model.number="starSettings.projYWindowPx" />
+                </div>
+              </template>
             </div>
             <div class="preproc-override-panel">
               <div class="preproc-override-header">
@@ -1386,6 +1591,17 @@ async function sendToOCR(): Promise<void> {
   width: 100%;
   accent-color: #ffcc32;
   cursor: pointer;
+}
+
+.star-finder-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.star-finder-active {
+  background: #554400;
+  color: #ffcc32;
+  border: 1px solid #ffcc32;
 }
 
 .preproc-override-panel {
