@@ -2,7 +2,7 @@
  * OCR utilities using Tesseract.js for artifact text recognition
  */
 
-import {createWorker, type RecognizeResult, type Worker} from 'tesseract.js'
+import {createWorker, type LoggerMessage, type RecognizeResult, type Worker, type WorkerOptions} from 'tesseract.js'
 
 export interface OCRConfig {
   lang?: string
@@ -50,12 +50,12 @@ export class OCRWorker {
 
     try {
       // Create worker with OEM in constructor (can't be changed after init)
-      const workerOptions: any = {
+      const workerOptions: Partial<WorkerOptions> = {
         langPath: this.config.langPath ?? '/tessdata',
         gzip: false,
       }
       if (onProgress) {
-        workerOptions.logger = (m: any) => {
+        workerOptions.logger = (m: LoggerMessage) => {
           onProgress({
             status: m.status,
             progress: m.progress || 0,
