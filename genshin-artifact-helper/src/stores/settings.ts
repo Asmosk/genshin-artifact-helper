@@ -6,13 +6,9 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { BuildProfile } from '@/types/artifact'
 import { DEFAULT_BUILD_PROFILE, COMMON_BUILD_PROFILES } from '@/types/artifact'
+import type { CaptureRegion } from '@/types/capture'
 
-export interface CaptureRegion {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+export type { CaptureRegion }
 
 export interface PreprocessingOptions {
   /** Convert image to grayscale */

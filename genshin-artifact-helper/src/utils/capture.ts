@@ -11,12 +11,9 @@ export interface CaptureOptions {
   audio?: boolean
 }
 
-export interface CaptureRegion {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+import type { CaptureRegion } from '@/types/capture'
+
+export type { CaptureRegion }
 
 /**
  * Request screen capture using getDisplayMedia API

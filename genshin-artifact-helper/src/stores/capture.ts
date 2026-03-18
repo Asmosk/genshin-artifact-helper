@@ -13,7 +13,8 @@ import {
   loadImageToCanvas,
 } from '@/utils/capture'
 import { preprocessForOCR, preprocessQuick } from '@/utils/preprocessing'
-import type { CaptureRegion } from '@/utils/capture'
+import type { CaptureRegion } from '@/types/capture'
+import type { PreprocessingOptions } from '@/stores/settings'
 import { useSettingsStore } from './settings'
 
 export type CaptureMode = 'idle' | 'selecting-region' | 'continuous' | 'manual'
@@ -27,6 +28,37 @@ export interface CapturedImage {
   timestamp: Date
   /** Region used for capture (if any) */
   region: CaptureRegion | null
+}
+
+/**
+ * Crop a source canvas to a region (if set) and optionally preprocess it.
+ * Returns the final canvas and the preprocessed canvas (if preprocessing is enabled).
+ */
+function cropAndPreprocess(
+  sourceCanvas: HTMLCanvasElement,
+  region: CaptureRegion | null,
+  enablePreprocessing: boolean,
+  preprocessingOptions: PreprocessingOptions,
+  preprocess: typeof preprocessForOCR = preprocessForOCR,
+): { finalCanvas: HTMLCanvasElement; preprocessed: HTMLCanvasElement | null } {
+  let finalCanvas = sourceCanvas
+
+  if (region) {
+    // Only crop if image is large enough to contain the region
+    if (
+      sourceCanvas.width >= region.x + region.width &&
+      sourceCanvas.height >= region.y + region.height
+    ) {
+      finalCanvas = cropCanvas(sourceCanvas, region)
+    }
+  }
+
+  let preprocessed: HTMLCanvasElement | null = null
+  if (enablePreprocessing) {
+    preprocessed = preprocess(finalCanvas, preprocessingOptions)
+  }
+
+  return { finalCanvas, preprocessed }
 }
 
 export const useCaptureStore = defineStore('capture', () => {
@@ -103,22 +135,14 @@ export const useCaptureStore = defineStore('capture', () => {
     await captureFrame(stream.value, canvas)
 
     const settingsStore = useSettingsStore()
+    const region = settingsStore.captureSettings.region
 
-    // Apply region cropping if set
-    let finalCanvas = canvas
-    let region: CaptureRegion | null = null
-
-    if (settingsStore.captureSettings.region) {
-      region = settingsStore.captureSettings.region
-      finalCanvas = cropCanvas(canvas, region)
-    }
-
-    // Apply preprocessing if enabled
-    let preprocessed: HTMLCanvasElement | null = null
-    if (settingsStore.captureSettings.enablePreprocessing) {
-      const options = settingsStore.captureSettings.preprocessingOptions
-      preprocessed = preprocessForOCR(finalCanvas, options)
-    }
+    const { finalCanvas, preprocessed } = cropAndPreprocess(
+      canvas,
+      region,
+      settingsStore.captureSettings.enablePreprocessing,
+      settingsStore.captureSettings.preprocessingOptions,
+    )
 
     const captured: CapturedImage = {
       original: finalCanvas,
@@ -145,21 +169,15 @@ export const useCaptureStore = defineStore('capture', () => {
     captureLoop = createCaptureLoop(
       stream.value,
       (canvas) => {
-        // Apply region cropping if set
-        let finalCanvas = canvas
-        let region: CaptureRegion | null = null
+        const region = settingsStore.captureSettings.region
 
-        if (settingsStore.captureSettings.region) {
-          region = settingsStore.captureSettings.region
-          finalCanvas = cropCanvas(canvas, region)
-        }
-
-        // Apply quick preprocessing for preview
-        let preprocessed: HTMLCanvasElement | null = null
-        if (settingsStore.captureSettings.enablePreprocessing) {
-          const options = settingsStore.captureSettings.preprocessingOptions
-          preprocessed = preprocessQuick(finalCanvas, options)
-        }
+        const { finalCanvas, preprocessed } = cropAndPreprocess(
+          canvas,
+          region,
+          settingsStore.captureSettings.enablePreprocessing,
+          settingsStore.captureSettings.preprocessingOptions,
+          preprocessQuick,
+        )
 
         const captured: CapturedImage = {
           original: finalCanvas,
@@ -199,28 +217,14 @@ export const useCaptureStore = defineStore('capture', () => {
       const canvas = await loadImageToCanvas(file)
 
       const settingsStore = useSettingsStore()
+      const region = settingsStore.captureSettings.region
 
-      // Apply region cropping if set
-      let finalCanvas = canvas
-      let region: CaptureRegion | null = null
-
-      if (settingsStore.captureSettings.region) {
-        region = settingsStore.captureSettings.region
-        // Only crop if image is large enough
-        if (
-          canvas.width >= region.x + region.width &&
-          canvas.height >= region.y + region.height
-        ) {
-          finalCanvas = cropCanvas(canvas, region)
-        }
-      }
-
-      // Apply preprocessing if enabled
-      let preprocessed: HTMLCanvasElement | null = null
-      if (settingsStore.captureSettings.enablePreprocessing) {
-        const options = settingsStore.captureSettings.preprocessingOptions
-        preprocessed = preprocessForOCR(finalCanvas, options)
-      }
+      const { finalCanvas, preprocessed } = cropAndPreprocess(
+        canvas,
+        region,
+        settingsStore.captureSettings.enablePreprocessing,
+        settingsStore.captureSettings.preprocessingOptions,
+      )
 
       const captured: CapturedImage = {
         original: finalCanvas,

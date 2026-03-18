@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useCaptureStore } from '@/stores/capture'
-import type { CaptureRegion } from '@/utils/capture'
+import type { CaptureRegion } from '@/types/capture'
 
 const props = defineProps<{
   canvas: HTMLCanvasElement

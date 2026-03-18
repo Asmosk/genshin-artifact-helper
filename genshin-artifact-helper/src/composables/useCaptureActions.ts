@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useCaptureStore } from '@/stores/capture'
 import { useSettingsStore } from '@/stores/settings'
-import type { CaptureRegion } from '@/utils/capture'
+import type { CaptureRegion } from '@/types/capture'
 
 export function useCaptureActions() {
   const captureStore = useCaptureStore()
