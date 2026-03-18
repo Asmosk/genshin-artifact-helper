@@ -23,7 +23,6 @@ export function useDebugPanel(params: {
   const captureStore = useCaptureStore()
 
   const showDebugMenu = ref(false)
-  const debugShowOCRRegions = ref(false)
   const debugShowStarDetection = ref(false)
   const debugShowHistograms = ref(false)
   const debugStarData = ref<StarDetectionDebugData | null>(null)
@@ -114,7 +113,6 @@ export function useDebugPanel(params: {
 
   return {
     showDebugMenu,
-    debugShowOCRRegions,
     debugShowStarDetection,
     debugShowHistograms,
     debugStarData,

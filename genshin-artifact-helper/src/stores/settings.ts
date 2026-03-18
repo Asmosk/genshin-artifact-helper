@@ -6,9 +6,6 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { BuildProfile } from '@/types/artifact'
 import { DEFAULT_BUILD_PROFILE, COMMON_BUILD_PROFILES } from '@/types/artifact'
-import type { CaptureRegion } from '@/types/capture'
-
-export type { CaptureRegion }
 
 export interface PreprocessingOptions {
   /** Convert image to grayscale */
@@ -37,37 +34,14 @@ export interface PreprocessingOptions {
   invert: boolean
 }
 
-export const DEFAULT_PREPROCESSING_OPTIONS: PreprocessingOptions = {
-  grayscale: false,
-  enhanceContrast: false,
-  contrastFactor: 1.8,
-  denoise: false,
-  sharpen: false,
-  adaptive: false,
-  adaptiveBlockSize: 11,
-  upscale: false,
-  scaleFactor: 1,
-  genshinOptimized: true,
-  backgroundThreshold: 160,
-  invert: false,
-}
-
 export interface CaptureSettings {
-  /** Region to capture (relative to screen) */
-  region: CaptureRegion | null
   /** Auto-detect artifacts when they change */
   autoDetect: boolean
   /** Capture rate in FPS */
   captureRate: number
-  /** Enable image preprocessing */
-  enablePreprocessing: boolean
-  /** Preprocessing options */
-  preprocessingOptions: PreprocessingOptions
 }
 
 export interface OCRRegionSettings {
-  /** Enable region-based OCR */
-  enabled: boolean
   /** Screen type ('auto' | 'character' | 'inventory' | 'rewards') */
   screenType: 'auto' | 'character' | 'inventory' | 'rewards'
   /** Process regions in parallel for better performance */
@@ -100,11 +74,8 @@ const STORAGE_KEY_PROFILES = 'genshin-artifact-helper-profiles'
 export const useSettingsStore = defineStore('settings', () => {
   // State - Capture Settings
   const captureSettings = ref<CaptureSettings>({
-    region: null,
     autoDetect: true,
     captureRate: 2,
-    enablePreprocessing: false,
-    preprocessingOptions: { ...DEFAULT_PREPROCESSING_OPTIONS },
   })
 
   // State - OCR Settings
@@ -113,7 +84,6 @@ export const useSettingsStore = defineStore('settings', () => {
     autoCorrect: true,
     language: 'eng',
     regions: {
-      enabled: true, // Enable region-based OCR by default
       screenType: 'auto', // Auto-detect screen type
       parallelProcessing: true, // Process regions in parallel for speed
     },
@@ -139,21 +109,7 @@ export const useSettingsStore = defineStore('settings', () => {
     return buildProfiles.value.length > COMMON_BUILD_PROFILES.length
   })
 
-  const captureRegionSet = computed(() => {
-    return captureSettings.value.region !== null
-  })
-
   // Actions - Capture Settings
-  function setCaptureRegion(region: CaptureRegion) {
-    captureSettings.value.region = region
-    saveSettings()
-  }
-
-  function clearCaptureRegion() {
-    captureSettings.value.region = null
-    saveSettings()
-  }
-
   function setCaptureRate(rate: number) {
     captureSettings.value.captureRate = Math.max(1, Math.min(10, rate))
     saveSettings()
@@ -161,24 +117,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function toggleAutoDetect() {
     captureSettings.value.autoDetect = !captureSettings.value.autoDetect
-    saveSettings()
-  }
-
-  function togglePreprocessing() {
-    captureSettings.value.enablePreprocessing = !captureSettings.value.enablePreprocessing
-    saveSettings()
-  }
-
-  function updatePreprocessingOptions(options: Partial<PreprocessingOptions>) {
-    captureSettings.value.preprocessingOptions = {
-      ...captureSettings.value.preprocessingOptions,
-      ...options,
-    }
-    saveSettings()
-  }
-
-  function resetPreprocessingOptions() {
-    captureSettings.value.preprocessingOptions = { ...DEFAULT_PREPROCESSING_OPTIONS }
     saveSettings()
   }
 
@@ -190,11 +128,6 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function toggleAutoCorrect() {
     ocrSettings.value.autoCorrect = !ocrSettings.value.autoCorrect
-    saveSettings()
-  }
-
-  function toggleRegionBasedOCR() {
-    ocrSettings.value.regions.enabled = !ocrSettings.value.regions.enabled
     saveSettings()
   }
 
@@ -310,16 +243,10 @@ export const useSettingsStore = defineStore('settings', () => {
       if (saved) {
         const settings = JSON.parse(saved)
 
-        // Merge capture settings to preserve new properties (like preprocessingOptions)
         if (settings.capture) {
           captureSettings.value = {
             ...captureSettings.value,
             ...settings.capture,
-            // Ensure preprocessingOptions is always present with defaults
-            preprocessingOptions: {
-              ...captureSettings.value.preprocessingOptions,
-              ...(settings.capture.preprocessingOptions || {}),
-            },
           }
         }
 
@@ -397,21 +324,14 @@ export const useSettingsStore = defineStore('settings', () => {
     // Getters
     currentBuildProfile,
     hasCustomProfiles,
-    captureRegionSet,
 
     // Actions - Capture
-    setCaptureRegion,
-    clearCaptureRegion,
     setCaptureRate,
     toggleAutoDetect,
-    togglePreprocessing,
-    updatePreprocessingOptions,
-    resetPreprocessingOptions,
 
     // Actions - OCR
     setOCRConfidenceThreshold,
     toggleAutoCorrect,
-    toggleRegionBasedOCR,
     setOCRScreenType,
     toggleParallelProcessing,
     updateRegionSettings,

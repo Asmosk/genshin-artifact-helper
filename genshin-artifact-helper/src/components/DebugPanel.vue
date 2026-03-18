@@ -4,10 +4,12 @@ import { defaultStarDetectionSettings } from '@/utils/star-detection'
 import type { StarDetectionDebugData, StarDetectionSettings } from '@/utils/star-detection'
 import type { ArtifactRegionLayout, ScreenType, PreprocessingOptions } from '@/types/ocr-regions'
 import OCRRegionOffsetSetup from '@/components/OCRRegionOffsetSetup.vue'
+import { useSettingsStore } from '@/stores/settings'
+
+const settingsStore = useSettingsStore()
 
 defineProps<{
   showDebugMenu: boolean
-  debugShowOCRRegions: boolean
   debugShowStarDetection: boolean
   debugShowHistograms: boolean
   debugStarData: StarDetectionDebugData | null
@@ -24,7 +26,6 @@ defineProps<{
 
 const emit = defineEmits<{
   'update:showDebugMenu': [value: boolean]
-  'update:debugShowOCRRegions': [value: boolean]
   'update:debugShowHistograms': [value: boolean]
   'update:starSettings': [value: StarDetectionSettings]
   'update:starAlgorithmMode': [value: 'legacy' | 'projection']
@@ -45,14 +46,17 @@ const emit = defineEmits<{
       {{ showDebugMenu ? '&#x25BC;' : '&#x25B6;' }} Debug
     </h2>
     <div v-if="showDebugMenu" class="debug-controls">
-      <button
-        class="btn btn-secondary debug-btn"
-        :class="{ 'debug-btn-active': debugShowOCRRegions }"
-        :disabled="!hasImage"
-        @click="emit('update:debugShowOCRRegions', !debugShowOCRRegions)"
-      >
-        Draw OCR Regions
-      </button>
+      <div class="checkbox-control">
+        <label>
+          <input
+            type="checkbox"
+            :checked="settingsStore.ocrSettings.regions.parallelProcessing"
+            @change="settingsStore.toggleParallelProcessing()"
+          />
+          Parallel Processing
+        </label>
+        <small>Process regions simultaneously</small>
+      </div>
       <button
         class="btn btn-secondary debug-btn"
         :class="{ 'debug-btn-active': debugShowStarDetection }"

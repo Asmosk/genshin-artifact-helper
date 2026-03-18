@@ -32,6 +32,7 @@ export const useOCRStore = defineStore('ocr', () => {
   const detectedRegionPositions = ref<Map<string, Rectangle> | null>(null)
   const detectedAnchorPx = ref<{ x: number; y: number } | null>(null)
   const regionResults = ref<RegionOCRResult[]>([])
+  const detectedScreenType = ref<ScreenType | null>(null)
 
   // Getters
   const isProcessing = computed(() => state.value === 'processing' || state.value === 'initializing')
@@ -88,6 +89,7 @@ export const useOCRStore = defineStore('ocr', () => {
     detectedRegionPositions.value = null
     detectedAnchorPx.value = null
     regionResults.value = []
+    detectedScreenType.value = null
   }
 
   /**
@@ -121,7 +123,7 @@ export const useOCRStore = defineStore('ocr', () => {
       const settingsStore = useSettingsStore()
 
       // Determine screen type (auto-detect or use provided)
-      let detectedScreenType: ScreenType
+      let resolvedScreenType: ScreenType
       const configuredType = settingsStore.ocrSettings.regions.screenType
 
       if (configuredType === 'auto') {
@@ -133,7 +135,7 @@ export const useOCRStore = defineStore('ocr', () => {
           processingTime.value = Date.now() - startTime
           return { artifact: {}, confidence: 0, rawText: '', errors: ['No artifact detected on screen'] } as OCRResult
         }
-        detectedScreenType = detectScreenType(
+        resolvedScreenType = detectScreenType(
           canvas,
           starResult.stars.position,
           canvas.width,
@@ -141,14 +143,16 @@ export const useOCRStore = defineStore('ocr', () => {
         )
         progress.value = 10
       } else {
-        detectedScreenType = configuredType as ScreenType
+        resolvedScreenType = configuredType as ScreenType
       }
 
+      detectedScreenType.value = resolvedScreenType
+
       // Get layout template for screen type
-      const layout = getRegionTemplate(detectedScreenType)
+      const layout = getRegionTemplate(resolvedScreenType)
       activeLayout.value = layout
       progress.value = 20
-      progressStatus.value = `Using ${detectedScreenType} screen layout...`
+      progressStatus.value = `Using ${resolvedScreenType} screen layout...`
 
       // Initialize OCR worker if needed
       const worker = getOCRWorker()
@@ -194,7 +198,7 @@ export const useOCRStore = defineStore('ocr', () => {
 
       // Add region-specific metadata
       parseResult.regionBased = true
-      parseResult.screenType = detectedScreenType
+      parseResult.screenType = resolvedScreenType
       parseResult.regionCount = regionResult.regions.length
 
       // Store result
@@ -266,6 +270,7 @@ export const useOCRStore = defineStore('ocr', () => {
       const screenType: ScreenType = settingsStore.ocrSettings.regions.screenType === 'auto'
         ? detectScreenType(canvas, detection.stars.position, canvas.width, canvas.height)
         : settingsStore.ocrSettings.regions.screenType as ScreenType
+      detectedScreenType.value = screenType
       const layout = getRegionTemplate(screenType)
 
       // Use detected first-star center as the canonical anchor point
@@ -303,6 +308,7 @@ export const useOCRStore = defineStore('ocr', () => {
     detectedRegionPositions,
     detectedAnchorPx,
     regionResults,
+    detectedScreenType,
 
     // Getters
     isProcessing,

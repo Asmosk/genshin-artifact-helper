@@ -3,13 +3,10 @@ import { ref } from 'vue'
 import { useCaptureStore } from '@/stores/capture'
 import { useSettingsStore } from '@/stores/settings'
 import { useOCRStore } from '@/stores/ocr'
-import RegionSelector from '@/components/RegionSelector.vue'
-import PreprocessingSettings from '@/components/PreprocessingSettings.vue'
 import OCRResults from '@/components/OCRResults.vue'
 import OCRRegionPreviews from '@/components/OCRRegionPreviews.vue'
 import ScreenCaptureControls from '@/components/ScreenCaptureControls.vue'
 import ManualUploadControls from '@/components/ManualUploadControls.vue'
-import CaptureRegionControls from '@/components/CaptureRegionControls.vue'
 import DebugPanel from '@/components/DebugPanel.vue'
 import { useCaptureActions } from '@/composables/useCaptureActions'
 import { useOCRDispatch } from '@/composables/useOCRDispatch'
@@ -21,7 +18,6 @@ const settingsStore = useSettingsStore()
 const ocrStore = useOCRStore()
 
 const captureActions = useCaptureActions()
-const showAdvancedPreprocessing = ref(false)
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
 
 const callbacks = { sendToOCR: () => {}, redrawPreview: () => {} }
@@ -35,7 +31,6 @@ const ocrDispatch = useOCRDispatch({
 
 const canvasPreview = useCanvasPreview({
   previewCanvasRef,
-  debugShowOCRRegions: debug.debugShowOCRRegions,
   debugShowStarDetection: debug.debugShowStarDetection,
   debugShowHistograms: debug.debugShowHistograms,
   debugStarData: debug.debugStarData,
@@ -61,19 +56,6 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
       </div>
     </div>
 
-    <!-- Region Selector Modal -->
-    <div v-if="captureActions.showRegionSelector.value" class="modal-overlay">
-      <div class="modal-content">
-        <RegionSelector
-          v-if="captureActions.regionSelectorCanvas.value"
-          :canvas="captureActions.regionSelectorCanvas.value"
-          :initial-region="settingsStore.captureSettings.region"
-          @region-selected="captureActions.handleRegionSelected"
-          @cancel="captureActions.handleRegionCancel"
-        />
-      </div>
-    </div>
-
     <!-- Main Content -->
     <div class="content">
       <!-- Controls Panel -->
@@ -93,60 +75,10 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
           @drag-over="captureActions.handleDragOver"
         />
 
-        <CaptureRegionControls
-          :has-region="captureActions.hasRegion.value"
-          :has-image="captureActions.hasImage.value"
-          :has-capture="captureActions.hasCapture.value"
-          @select-region="captureActions.startRegionSelection"
-          @clear-region="captureActions.clearRegion"
-        />
-
-        <section class="control-section">
-          <h2>Processing</h2>
-          <div class="checkbox-control">
-            <label>
-              <input
-                type="checkbox"
-                :checked="captureActions.processingEnabled.value"
-                @change="captureActions.togglePreprocessing"
-              />
-              Enable Preprocessing
-            </label>
-            <small>Improves OCR accuracy</small>
-          </div>
-
-          <button
-            v-if="captureActions.processingEnabled.value"
-            class="btn btn-secondary advanced-toggle"
-            @click="showAdvancedPreprocessing = !showAdvancedPreprocessing"
-          >
-            {{ showAdvancedPreprocessing ? '&#x25BC;' : '&#x25B6;' }} Advanced Settings
-          </button>
-
-          <div
-            v-if="captureActions.processingEnabled.value && showAdvancedPreprocessing"
-            class="advanced-settings"
-          >
-            <PreprocessingSettings />
-          </div>
-        </section>
-
         <section class="control-section">
           <h2>OCR Settings</h2>
 
-          <div class="checkbox-control">
-            <label>
-              <input
-                type="checkbox"
-                :checked="settingsStore.ocrSettings.regions.enabled"
-                @change="settingsStore.toggleRegionBasedOCR()"
-              />
-              Use Region-Based OCR
-            </label>
-            <small>Faster and more accurate</small>
-          </div>
-
-          <div v-if="settingsStore.ocrSettings.regions.enabled" class="select-control">
+          <div class="select-control">
             <label>Screen Type:</label>
             <select
               :value="settingsStore.ocrSettings.regions.screenType"
@@ -165,19 +97,7 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
             <small>Which screen shows the artifact</small>
           </div>
 
-          <div v-if="settingsStore.ocrSettings.regions.enabled" class="checkbox-control">
-            <label>
-              <input
-                type="checkbox"
-                :checked="settingsStore.ocrSettings.regions.parallelProcessing"
-                @change="settingsStore.toggleParallelProcessing()"
-              />
-              Parallel Processing
-            </label>
-            <small>Process regions simultaneously</small>
-          </div>
-
-          <div v-if="settingsStore.ocrSettings.regions.enabled" class="checkbox-control">
+          <div class="checkbox-control">
             <label>
               <input
                 type="checkbox"
@@ -192,7 +112,6 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
 
         <DebugPanel
           :show-debug-menu="debug.showDebugMenu.value"
-          :debug-show-o-c-r-regions="debug.debugShowOCRRegions.value"
           :debug-show-star-detection="debug.debugShowStarDetection.value"
           :debug-show-histograms="debug.debugShowHistograms.value"
           :debug-star-data="debug.debugStarData.value"
@@ -206,7 +125,6 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
           :region-editor-layout="debug.regionEditorLayout.value"
           :has-image="captureActions.hasImage.value"
           @update:show-debug-menu="debug.showDebugMenu.value = $event"
-          @update:debug-show-o-c-r-regions="debug.debugShowOCRRegions.value = $event"
           @update:debug-show-histograms="debug.debugShowHistograms.value = $event"
           @update:star-settings="debug.starSettings.value = $event"
           @update:star-algorithm-mode="debug.starAlgorithmMode.value = $event"
@@ -226,16 +144,6 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
         <div class="preview-header">
           <h2>Preview</h2>
           <div v-if="captureActions.hasImage.value" class="preview-actions">
-            <button class="btn btn-small btn-secondary" @click="ocrDispatch.clearImage">
-              Clear
-            </button>
-            <button
-              class="btn btn-secondary"
-              :disabled="ocrStore.isProcessing"
-              @click="ocrDispatch.detectArtifactDescription"
-            >
-              Detect Artifact Description
-            </button>
             <button
               class="btn btn-primary"
               :disabled="ocrStore.isProcessing"
@@ -285,9 +193,15 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
             <label>Timestamp:</label>
             <span>{{ captureStore.capturedImage.timestamp.toLocaleTimeString() }}</span>
           </div>
-          <div class="info-item">
-            <label>Preprocessed:</label>
-            <span>{{ captureStore.capturedImage.preprocessed ? 'Yes' : 'No' }}</span>
+          <div
+            v-if="
+              settingsStore.ocrSettings.regions.screenType === 'auto' &&
+              ocrStore.detectedScreenType
+            "
+            class="info-item"
+          >
+            <label>Screen Type:</label>
+            <span>{{ ocrStore.detectedScreenType }}</span>
           </div>
         </div>
       </div>
@@ -353,19 +267,6 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
   flex-direction: column;
   gap: 1rem;
   overflow-y: auto;
-}
-
-.advanced-toggle {
-  width: 100%;
-  margin-top: 0.5rem;
-  text-align: left;
-  font-size: 0.85rem;
-}
-
-.advanced-settings {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #333;
 }
 
 .preview-panel {
@@ -441,31 +342,6 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
 .info-item span {
   color: #fff;
   font-family: monospace;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 2rem;
-}
-
-.modal-content {
-  background: #1a1a1a;
-  border-radius: 8px;
-  padding: 1rem;
-  max-width: 90vw;
-  max-height: 90vh;
-  width: 1200px;
-  height: 800px;
-  display: flex;
 }
 
 .ocr-progress {

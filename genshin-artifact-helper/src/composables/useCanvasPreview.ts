@@ -9,7 +9,6 @@ import type { StarDetectionDebugData, StarDetectionSettings } from '@/utils/star
 
 export function useCanvasPreview(params: {
   previewCanvasRef: Ref<HTMLCanvasElement | null>
-  debugShowOCRRegions: Ref<boolean>
   debugShowStarDetection: Ref<boolean>
   debugShowHistograms: Ref<boolean>
   debugStarData: Ref<StarDetectionDebugData | null>
@@ -35,21 +34,14 @@ export function useCanvasPreview(params: {
     const configuredType = settingsStore.ocrSettings.regions.screenType
 
     if (configuredType === 'auto') {
-      if (params.debugShowOCRRegions.value) {
-        return ocrStore.activeLayout ?? getRegionTemplate('inventory')
-      }
       return ocrStore.activeLayout
     }
 
-    if (settingsStore.ocrSettings.regions.enabled || params.debugShowOCRRegions.value) {
-      try {
-        return getRegionTemplate(configuredType as ScreenType)
-      } catch {
-        return null
-      }
+    try {
+      return getRegionTemplate(configuredType as ScreenType)
+    } catch {
+      return null
     }
-
-    return null
   })
 
   function redrawPreview(): void {
@@ -60,15 +52,12 @@ export function useCanvasPreview(params: {
     const ctx = previewCanvasRef.value.getContext('2d')
     if (!ctx) return
 
-    const displayCanvas = image.preprocessed ?? image.original
+    const displayCanvas = image.original
     previewCanvasRef.value.width = displayCanvas.width
     previewCanvasRef.value.height = displayCanvas.height
     ctx.drawImage(displayCanvas, 0, 0)
 
-    if (
-      (showOCRRegions.value || params.debugShowOCRRegions.value || params.showRegionOffsetSetup.value) &&
-      layout
-    ) {
+    if ((showOCRRegions.value || params.showRegionOffsetSetup.value) && layout) {
       drawOCRRegions(ctx, layout, previewCanvasRef.value.width, previewCanvasRef.value.height)
     }
 
@@ -91,7 +80,6 @@ export function useCanvasPreview(params: {
       () => captureStore.capturedImage,
       activeLayout,
       showOCRRegions,
-      params.debugShowOCRRegions,
       params.debugShowStarDetection,
       params.debugShowHistograms,
       () => ocrStore.detectedRarityBounds,
@@ -99,7 +87,7 @@ export function useCanvasPreview(params: {
       params.starCenterFinderMode,
       params.starAlgorithmMode,
     ],
-    async ([, , , , newDebugStar]) => {
+    async ([, , , newDebugStar]) => {
       await nextTick()
       if (newDebugStar) {
         params.runStarDetectionDebug()

@@ -10,28 +10,14 @@ export function useOCRDispatch(params: {
   const captureStore = useCaptureStore()
   const ocrStore = useOCRStore()
 
-  function clearImage(): void {
-    captureStore.clearImage()
-    ocrStore.clearResult()
-  }
-
-  function detectArtifactDescription(): void {
-    if (!captureStore.capturedImage) return
-    ocrStore.detectArtifactDescription(captureStore.capturedImage.original)
-  }
-
   async function sendToOCR(): Promise<void> {
     if (!captureStore.capturedImage) {
       return
     }
 
     try {
-      const imageToProcess =
-        captureStore.capturedImage.preprocessed ?? captureStore.capturedImage.original
-
       const overrides = params.enabled.value ? params.options.value : undefined
-
-      await ocrStore.processImage(imageToProcess, overrides)
+      await ocrStore.processImage(captureStore.capturedImage.original, overrides)
     } catch (error) {
       console.error('OCR processing failed:', error)
       alert('OCR processing failed. See console for details.')
@@ -39,8 +25,6 @@ export function useOCRDispatch(params: {
   }
 
   return {
-    clearImage,
-    detectArtifactDescription,
     sendToOCR,
   }
 }

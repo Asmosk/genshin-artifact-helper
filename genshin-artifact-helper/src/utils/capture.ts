@@ -11,10 +11,6 @@ export interface CaptureOptions {
   audio?: boolean
 }
 
-import type { CaptureRegion } from '@/types/capture'
-
-export type { CaptureRegion }
-
 /**
  * Request screen capture using getDisplayMedia API
  * User will be prompted to select screen/window
@@ -156,37 +152,6 @@ export function createCaptureLoop(
       video.srcObject = null
     },
   }
-}
-
-/**
- * Crop a region from a canvas
- */
-export function cropCanvas(
-  sourceCanvas: HTMLCanvasElement,
-  region: CaptureRegion,
-): HTMLCanvasElement {
-  const croppedCanvas = document.createElement('canvas')
-  croppedCanvas.width = region.width
-  croppedCanvas.height = region.height
-
-  const ctx = croppedCanvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) {
-    throw new Error('Failed to get canvas context')
-  }
-
-  ctx.drawImage(
-    sourceCanvas,
-    region.x,
-    region.y,
-    region.width,
-    region.height,
-    0,
-    0,
-    region.width,
-    region.height,
-  )
-
-  return croppedCanvas
 }
 
 /**

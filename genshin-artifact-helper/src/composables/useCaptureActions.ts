@@ -1,20 +1,14 @@
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useCaptureStore } from '@/stores/capture'
 import { useSettingsStore } from '@/stores/settings'
-import type { CaptureRegion } from '@/types/capture'
 
 export function useCaptureActions() {
   const captureStore = useCaptureStore()
   const settingsStore = useSettingsStore()
 
-  const showRegionSelector = ref(false)
-  const regionSelectorCanvas = ref<HTMLCanvasElement | null>(null)
-
   const hasCapture = computed(() => captureStore.isActive)
   const hasImage = computed(() => captureStore.hasImage)
-  const hasRegion = computed(() => settingsStore.captureRegionSet)
   const isContinuous = computed(() => captureStore.isContinuousMode)
-  const processingEnabled = computed(() => settingsStore.captureSettings.enablePreprocessing)
 
   const statusMessage = computed(() => {
     if (captureStore.captureError) {
@@ -76,53 +70,15 @@ export function useCaptureActions() {
     event.preventDefault()
   }
 
-  async function startRegionSelection(): Promise<void> {
-    if (hasCapture.value && !hasImage.value) {
-      await captureSingleFrame()
-    }
-
-    if (captureStore.capturedImage) {
-      regionSelectorCanvas.value = captureStore.capturedImage.original
-      showRegionSelector.value = true
-      captureStore.enterRegionSelectionMode()
-    }
-  }
-
-  function handleRegionSelected(region: CaptureRegion): void {
-    settingsStore.setCaptureRegion(region)
-    showRegionSelector.value = false
-    captureStore.exitRegionSelectionMode()
-  }
-
-  function handleRegionCancel(): void {
-    showRegionSelector.value = false
-    captureStore.exitRegionSelectionMode()
-  }
-
-  function clearRegion(): void {
-    settingsStore.clearCaptureRegion()
-  }
-
-  function togglePreprocessing(): void {
-    settingsStore.togglePreprocessing()
-    if (hasImage.value) {
-      captureStore.reprocessImage(false)
-    }
-  }
-
   function adjustCaptureRate(delta: number): void {
     const newRate = settingsStore.captureSettings.captureRate + delta
     settingsStore.setCaptureRate(newRate)
   }
 
   return {
-    showRegionSelector,
-    regionSelectorCanvas,
     hasCapture,
     hasImage,
-    hasRegion,
     isContinuous,
-    processingEnabled,
     statusMessage,
     startScreenCapture,
     stopScreenCapture,
@@ -130,11 +86,6 @@ export function useCaptureActions() {
     toggleContinuousCapture,
     handleFileDrop,
     handleDragOver,
-    startRegionSelection,
-    handleRegionSelected,
-    handleRegionCancel,
-    clearRegion,
-    togglePreprocessing,
     adjustCaptureRate,
   }
 }
