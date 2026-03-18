@@ -19,13 +19,14 @@ const captureStore = useCaptureStore()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const isDragging = ref(false)
+const hasSelected = ref(false)
 const startX = ref(0)
 const startY = ref(0)
 const currentX = ref(0)
 const currentY = ref(0)
 
 const region = computed<CaptureRegion | null>(() => {
-  if (!isDragging.value && !startX.value && !startY.value) {
+  if (!isDragging.value && !hasSelected.value) {
     return props.initialRegion ?? null
   }
 
@@ -97,6 +98,7 @@ function handleMouseDown(event: MouseEvent): void {
   currentX.value = startX.value
   currentY.value = startY.value
   isDragging.value = true
+  hasSelected.value = true
 }
 
 function handleMouseMove(event: MouseEvent): void {
@@ -142,6 +144,7 @@ function clearSelection(): void {
   currentX.value = 0
   currentY.value = 0
   isDragging.value = false
+  hasSelected.value = false
   drawCanvas()
 }
 
