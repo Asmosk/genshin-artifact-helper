@@ -37,6 +37,21 @@ export interface PreprocessingOptions {
   invert: boolean
 }
 
+export const DEFAULT_PREPROCESSING_OPTIONS: PreprocessingOptions = {
+  grayscale: false,
+  enhanceContrast: false,
+  contrastFactor: 1.8,
+  denoise: false,
+  sharpen: false,
+  adaptive: false,
+  adaptiveBlockSize: 11,
+  upscale: false,
+  scaleFactor: 1,
+  genshinOptimized: true,
+  backgroundThreshold: 160,
+  invert: false,
+}
+
 export interface CaptureSettings {
   /** Region to capture (relative to screen) */
   region: CaptureRegion | null
@@ -87,22 +102,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const captureSettings = ref<CaptureSettings>({
     region: null,
     autoDetect: true,
-    captureRate: 2, // 2 FPS
+    captureRate: 2,
     enablePreprocessing: false,
-    preprocessingOptions: {
-      grayscale: false,
-      enhanceContrast: false,
-      contrastFactor: 1.8,
-      denoise: false,
-      sharpen: false,
-      adaptive: false,
-      adaptiveBlockSize: 11,
-      upscale: false,
-      scaleFactor: 1,
-      genshinOptimized: true,
-      backgroundThreshold: 160,
-      invert: false,
-    },
+    preprocessingOptions: { ...DEFAULT_PREPROCESSING_OPTIONS },
   })
 
   // State - OCR Settings
@@ -176,20 +178,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function resetPreprocessingOptions() {
-    captureSettings.value.preprocessingOptions = {
-      grayscale: false,
-      enhanceContrast: false,
-      contrastFactor: 1.8,
-      denoise: false,
-      sharpen: false,
-      adaptive: false,
-      adaptiveBlockSize: 11,
-      upscale: false,
-      scaleFactor: 2,
-      genshinOptimized: true,
-      backgroundThreshold: 160,
-      invert: false,
-    }
+    captureSettings.value.preprocessingOptions = { ...DEFAULT_PREPROCESSING_OPTIONS }
     saveSettings()
   }
 
