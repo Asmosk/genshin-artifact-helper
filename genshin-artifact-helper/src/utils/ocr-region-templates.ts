@@ -168,11 +168,23 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
       REGION_NAMES.PIECE_NAME,
       -0.01, -0.15, 0.165, 0.048,
       'text',
+      {
+        preprocessingOverrides: {
+          genshinOptimized: true,
+          backgroundThreshold: 230,
+        }
+      },
     ),
 
     slotName: createRegion(REGION_NAMES.SLOT_NAME,
       -0.009, -0.099, 0.125, 0.03,
       'text',
+      {
+        preprocessingOverrides: {
+          genshinOptimized: true,
+          backgroundThreshold: 190,
+        }
+      },
     ),
 
     level: createRegion(
@@ -190,11 +202,23 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
       -0.004, -0.058, 0.104, 0.033,
       'text',
+      {
+        preprocessingOverrides: {
+          genshinOptimized: true,
+          backgroundThreshold: 250,
+        }
+      },
     ),
 
     mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE,
       0.111, -0.062, 0.043, 0.04,
       'mixed',
+      {
+        preprocessingOverrides: {
+          genshinOptimized: true,
+          backgroundThreshold: 250,
+        }
+      },
     ),
 
     substat1: createRegion(REGION_NAMES.SUBSTAT_1,
