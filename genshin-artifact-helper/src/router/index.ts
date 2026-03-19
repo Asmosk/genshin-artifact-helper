@@ -9,6 +9,11 @@ const router = createRouter({
       name: 'capture',
       component: CaptureView,
     },
+    {
+      path: '/dev/fixtures',
+      name: 'fixture-editor',
+      component: () => import('@/views/FixtureEditorView.vue'),
+    },
   ],
 })
 
