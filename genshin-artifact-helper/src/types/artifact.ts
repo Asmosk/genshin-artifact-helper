@@ -91,6 +91,8 @@ export interface Artifact {
   }
   /** Substats (3-4 depending on initial roll) */
   substats: Substat[]
+  /** Individual piece name as read by OCR (e.g. "Gladiator's Nostalgia") */
+  pieceName?: string
   /** Whether artifact is locked in game */
   locked?: boolean
   /** Whether artifact is equipped on a character */

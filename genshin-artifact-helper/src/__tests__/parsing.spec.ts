@@ -630,4 +630,65 @@ describe('parseArtifactFromRegions', () => {
     const result = parseArtifactFromRegions(regions, 5)
     expect(result.errors.some((e) => e.includes('Main stat value'))).toBe(true)
   })
+
+  it('should return typed pieceName on the artifact', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', "Gladiator's Nostalgia"),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '46.6'),
+      makeRegion('substat1', 'CRIT DMG+7.77%'),
+      makeRegion('substat2', 'CRIT Rate+3.89%'),
+      makeRegion('substat3', 'ATK+19'),
+      makeRegion('substat4', 'HP+239'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.artifact.pieceName).toBe("Gladiator's Nostalgia")
+  })
+
+  it('should set pieceName to undefined when empty', () => {
+    const regions: RegionOCRResult[] = [
+      makeRegion('pieceName', ''),
+      makeRegion('slotName', 'Goblet'),
+      makeRegion('level', '+20'),
+      makeRegion('mainStatName', 'Hydro DMG Bonus'),
+      makeRegion('mainStatValue', '46.6'),
+      makeRegion('substat1', 'CRIT DMG+7.77%'),
+    ]
+    const result = parseArtifactFromRegions(regions, 5)
+    expect(result.artifact.pieceName).toBeUndefined()
+  })
+})
+
+describe('parseStatLine disambiguation', () => {
+  it('ATK+19 → flat ATK (matches flat roll sums)', () => {
+    const result = parseStatLine('ATK+19')
+    expect(result).toMatchObject({ type: 'ATK', value: 19 })
+  })
+
+  it('ATK+5.8 with rarity=5 → ATK% (no flat match, matches % roll sum)', () => {
+    const result = parseStatLine('ATK+5.8', 5)
+    expect(result).toMatchObject({ type: 'ATK%', value: 5.8 })
+  })
+
+  it('HP+298 → flat HP (matches flat roll sums)', () => {
+    const result = parseStatLine('HP+298')
+    expect(result).toMatchObject({ type: 'HP', value: 298 })
+  })
+
+  it('HP+4.7 with rarity=5 → HP% (matches % roll sum)', () => {
+    const result = parseStatLine('HP+4.7', 5)
+    expect(result).toMatchObject({ type: 'HP%', value: 4.7 })
+  })
+
+  it('DEF+23 → flat DEF (matches flat roll sums)', () => {
+    const result = parseStatLine('DEF+23')
+    expect(result).toMatchObject({ type: 'DEF', value: 23 })
+  })
+
+  it('parseStatLine backward-compat: no rarity arg still works', () => {
+    const result = parseStatLine('CRIT Rate+3.5%')
+    expect(result).toMatchObject({ type: 'CRIT Rate', value: 3.5 })
+  })
 })

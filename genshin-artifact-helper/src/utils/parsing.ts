@@ -23,8 +23,15 @@ import {
   MAIN_STAT_VALUES_2STAR,
   MAIN_STAT_VALUES_1STAR,
 } from '@/types/artifact'
+import VALID_ROLL_SUMS from '@/generated/valid-roll-sums'
 import type { RegionOCRResult } from '@/types/ocr-regions'
 import { getRegionResultsMap } from './ocr-regions'
+import {
+  STAT_DEFINITIONS,
+  STAT_ALIAS_MAP,
+  SUBSTAT_TYPES,
+  STAT_DEFS_BY_KEY_LENGTH,
+} from './stat-defs'
 
 /**
  * Parsed stat with confidence
@@ -37,109 +44,186 @@ export interface ParsedStat {
 }
 
 /**
- * Parse a single stat line from OCR text
+ * Parse a single stat line from OCR text.
  * Examples: "CRIT Rate+3.5%", "ATK+19", "HP+298"
+ *
+ * When rarity is provided, ambiguous flat/percent stats (HP, ATK, DEF) without
+ * an explicit `%` are disambiguated using valid roll sum tables.
  */
-export function parseStatLine(line: string): ParsedStat | null {
+export function parseStatLine(line: string, rarity?: ArtifactRarity): ParsedStat | null {
   const trimmed = line.trim()
   if (!trimmed) return null
 
-  // Patterns for different stat types (percentage stats)
-  const percentagePatterns: Array<{ pattern: RegExp; type: SubstatType | MainStatType }> = [
-    { pattern: /CRIT\s*Rate\s*\+?\s*([\d.]+)\s*%?/i, type: 'CRIT Rate' },
-    { pattern: /CRIT\s*DMG\s*\+?\s*([\d.]+)\s*%?/i, type: 'CRIT DMG' },
-    { pattern: /ATK\s*\+?\s*([\d.]+)\s*%/i, type: 'ATK%' },
-    { pattern: /HP\s*\+?\s*([\d.]+)\s*%/i, type: 'HP%' },
-    { pattern: /DEF\s*\+?\s*([\d.]+)\s*%/i, type: 'DEF%' },
-    { pattern: /Energy\s*Recharge\s*\+?\s*([\d.]+)\s*%?/i, type: 'Energy Recharge' },
-    { pattern: /Elemental\s*Mastery\s*\+?\s*([\d.]+)/i, type: 'Elemental Mastery' },
-    // Elemental DMG Bonuses
-    { pattern: /Pyro\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Pyro DMG Bonus' },
-    { pattern: /Hydro\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Hydro DMG Bonus' },
-    { pattern: /Cryo\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Cryo DMG Bonus' },
-    { pattern: /Electro\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Electro DMG Bonus' },
-    { pattern: /Anemo\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Anemo DMG Bonus' },
-    { pattern: /Geo\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Geo DMG Bonus' },
-    { pattern: /Dendro\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Dendro DMG Bonus' },
-    { pattern: /Physical\s*DMG\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Physical DMG Bonus' },
-    { pattern: /Healing\s*Bonus\s*\+?\s*([\d.]+)\s*%?/i, type: 'Healing Bonus' },
-  ]
+  for (const def of STAT_DEFINITIONS) {
+    const match = trimmed.match(def.pattern)
+    if (!match || !match[1]) continue
 
-  // Try percentage patterns first
-  for (const { pattern, type } of percentagePatterns) {
-    const match = trimmed.match(pattern)
-    if (match && match[1]) {
-      const value = parseFloat(match[1])
-      return {
-        type,
+    const value = parseFloat(match[1])
+    if (isNaN(value)) continue
+
+    if (def.hasPercentVariant) {
+      const hasPercent = match[2] === '%'
+      const type = resolveAmbiguousStat(
+        def.type as 'HP' | 'ATK' | 'DEF',
         value,
-        confidence: 0.9, // High confidence for clear pattern match
-        originalText: trimmed,
-      }
+        hasPercent,
+        rarity,
+      )
+      return { type, value, confidence: 0.9, originalText: trimmed }
     }
+
+    return { type: def.type, value, confidence: 0.9, originalText: trimmed }
   }
 
-  // Flat value patterns (ATK, HP, DEF without %)
-  const flatPatterns: Array<{ pattern: RegExp; type: SubstatType | MainStatType }> = [
-    { pattern: /ATK\s*\+?\s*([\d]+)(?!\s*%)/i, type: 'ATK' },
-    { pattern: /HP\s*\+?\s*([\d]+)(?!\s*%)/i, type: 'HP' },
-    { pattern: /DEF\s*\+?\s*([\d]+)(?!\s*%)/i, type: 'DEF' },
-  ]
-
-  for (const { pattern, type } of flatPatterns) {
-    const match = trimmed.match(pattern)
-    if (match && match[1]) {
-      const value = parseFloat(match[1])
-      return {
-        type: type as SubstatType,
-        value,
-        confidence: 0.9,
-        originalText: trimmed,
-      }
-    }
-  }
-
-  return null
+  // Fallback: strip all spaces and match against canonical stat names
+  return parseStatLineNoSpaces(trimmed, rarity)
 }
 
 /**
- * Correct common OCR errors
+ * Resolve an ambiguous HP/ATK/DEF stat to its flat or percent variant.
+ * If `%` is explicitly present, returns percent. Otherwise uses roll-sum
+ * disambiguation when rarity is available, falling back to flat.
+ */
+function resolveAmbiguousStat(
+  baseType: 'HP' | 'ATK' | 'DEF',
+  value: number,
+  hasPercent: boolean,
+  rarity?: ArtifactRarity,
+): SubstatType | MainStatType {
+  if (hasPercent) return `${baseType}%`
+  return disambiguateFlatPercent(baseType, value, rarity)
+}
+
+/**
+ * Disambiguate flat vs percent for HP/ATK/DEF when no `%` sign is present.
+ * Uses valid roll sum tables to determine which interpretation is more likely.
+ *
+ * 1. If value matches a flat roll sum within tolerance (0.5) → flat
+ * 2. Else if value matches a percent roll sum within tolerance → percent
+ * 3. Else → flat (default)
+ */
+function disambiguateFlatPercent(
+  baseType: 'HP' | 'ATK' | 'DEF',
+  value: number,
+  rarity?: ArtifactRarity,
+): SubstatType {
+  const r = rarity ?? 5
+  const tolerance = 0.5
+
+  const flatSums = VALID_ROLL_SUMS[r]?.[baseType]
+  if (flatSums && nearestDistance(flatSums, value) <= tolerance) {
+    return baseType
+  }
+
+  const pctType = `${baseType}%` as SubstatType
+  const pctSums = VALID_ROLL_SUMS[r]?.[pctType]
+  if (pctSums && nearestDistance(pctSums, value) <= tolerance) {
+    return pctType
+  }
+
+  return baseType
+}
+
+/**
+ * Binary search for the nearest value in a sorted array, returns the distance.
+ */
+function nearestDistance(sorted: number[], value: number): number {
+  if (sorted.length === 0) return Infinity
+
+  let lo = 0
+  let hi = sorted.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (sorted[mid]! < value) lo = mid + 1
+    else hi = mid
+  }
+
+  let dist = Math.abs(sorted[lo]! - value)
+  if (lo > 0) {
+    dist = Math.min(dist, Math.abs(sorted[lo - 1]! - value))
+  }
+  return dist
+}
+
+/**
+ * Fallback parser for substat lines with OCR-inserted spaces (e.g. "CRIT Rate+1 3.6%").
+ * Strips all whitespace from the line, then prefix-matches against canonical stat names
+ * (also space-stripped) to identify the type, and extracts the numeric value from the
+ * remainder. Longest-matching prefix wins to avoid ambiguity (e.g. "critrate" over "crit").
+ * HP/ATK/DEF vs HP%/ATK%/DEF% is disambiguated by whether the value ends with "%",
+ * with roll-sum fallback when rarity is available.
+ */
+function parseStatLineNoSpaces(line: string, rarity?: ArtifactRarity): ParsedStat | null {
+  const stripped = line.replace(/\s/g, '')
+  const lower = stripped.toLowerCase()
+
+  // Find the longest-matching prefix (STAT_DEFS_BY_KEY_LENGTH is sorted longest-first)
+  let bestDef: (typeof STAT_DEFS_BY_KEY_LENGTH)[number] | undefined
+  for (const def of STAT_DEFS_BY_KEY_LENGTH) {
+    if (lower.startsWith(def.key)) {
+      bestDef = def
+      break // Already sorted longest-first, first match is best
+    }
+  }
+  if (!bestDef) return null
+
+  const remainder = stripped.slice(bestDef.key.length)
+  const match = remainder.match(/^[+]?([\d.]+)(%?)$/)
+  if (!match || !match[1]) return null
+
+  const value = parseFloat(match[1])
+  if (isNaN(value)) return null
+
+  let type: SubstatType | MainStatType = bestDef.type
+  if (bestDef.hasPercentVariant) {
+    const hasPercent = match[2] === '%'
+    type = resolveAmbiguousStat(type as 'HP' | 'ATK' | 'DEF', value, hasPercent, rarity)
+  }
+
+  return { type, value, confidence: 0.8, originalText: line }
+}
+
+/**
+ * Correct common OCR errors.
+ * Uses a single-pass character-by-character approach that reads neighbor context
+ * from the original string, avoiding stale-offset bugs from chained replacements.
  */
 export function correctOCRErrors(text: string): string {
-  let corrected = text
+  const result: string[] = []
 
-  // Common substitutions
-  corrected = corrected.replace(/[O0]/g, (match, offset) => {
-    // If preceded/followed by a letter, likely 'O', otherwise '0'
-    const before = corrected[offset - 1] || ''
-    const after = corrected[offset + 1] || ''
-    if (/[a-zA-Z]/.test(before) || /[a-zA-Z]/.test(after)) {
-      return 'O'
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!
+    const before = text[i - 1] || ''
+    const after = text[i + 1] || ''
+
+    if (ch === 'O' || ch === '0') {
+      // Letter context → 'O', digit context → '0'
+      if (/[a-zA-Z]/.test(before) || /[a-zA-Z]/.test(after)) {
+        result.push('O')
+      } else {
+        result.push('0')
+      }
+    } else if (ch === 'l' || ch === 'I') {
+      // In digit context, treat as '1'
+      if (/[\d.+]/.test(before) || /[\d.%]/.test(after)) {
+        result.push('1')
+      } else {
+        result.push(ch)
+      }
+    } else if (ch === 'S') {
+      // In digit context, treat as '5'
+      if (/[\d.+]/.test(before) || /[\d.%]/.test(after)) {
+        result.push('5')
+      } else {
+        result.push(ch)
+      }
+    } else {
+      result.push(ch)
     }
-    return '0'
-  })
+  }
 
-  // l (lowercase L) or I (uppercase i) in numbers should be 1
-  corrected = corrected.replace(/[lI]/g, (match, offset) => {
-    const before = corrected[offset - 1] || ''
-    const after = corrected[offset + 1] || ''
-    if (/[\d.+]/.test(before) || /[\d.%]/.test(after)) {
-      return '1'
-    }
-    return match
-  })
-
-  // S in numbers should be 5
-  corrected = corrected.replace(/S/g, (match, offset) => {
-    const before = corrected[offset - 1] || ''
-    const after = corrected[offset + 1] || ''
-    if (/[\d.+]/.test(before) || /[\d.%]/.test(after)) {
-      return '5'
-    }
-    return match
-  })
-
-  return corrected
+  // Collapse spaces OCR inserts within digit sequences (e.g. "1 3.6" → "13.6")
+  return result.join('').replace(/(\d)\s+([\d.])/g, '$1$2')
 }
 
 /**
@@ -186,46 +270,35 @@ export function findNearestMainStatValue(
 }
 
 /**
- * Find nearest valid roll value for a substat
+ * Find nearest valid roll value for a substat.
+ * Uses pre-computed lookup table (generated at build time) with binary search.
  */
-export function findNearestRollValue(type: SubstatType, value: number, rarity?: ArtifactRarity): number {
-  const rollTable = getRollTable(rarity)
-  const validRolls = rollTable[type]
-  if (!validRolls || validRolls.length === 0) {
-    return value
+export function findNearestRollValue(
+  type: SubstatType,
+  value: number,
+  rarity?: ArtifactRarity,
+): number {
+  const r = rarity ?? 5
+  const sums = VALID_ROLL_SUMS[r]?.[type]
+  if (!sums || sums.length === 0) return value
+
+  // Binary search for insertion point
+  let lo = 0
+  let hi = sums.length - 1
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (sums[mid]! < value) lo = mid + 1
+    else hi = mid
   }
 
-  let nearest = value
-  let minDiff = Infinity
-
-  // Search all sums of 1-6 rolls (mixed tiers allowed, e.g. 2.72+3.11 = 5.83).
-  // Prunes branches where the running sum already exceeds value + tolerance.
-  let iterations = 0
-  const MAX_ITERATIONS = 100_000
-
-  function search(rollsLeft: number, current: number) {
-    for (const roll of validRolls) {
-      if (minDiff === 0 || iterations >= MAX_ITERATIONS) return
-
-      iterations++
-      const sum = Math.round((current + roll) * 100) / 100
-      const diff = Math.abs(value - sum)
-      if (diff < minDiff) {
-        minDiff = diff
-        nearest = sum
-      }
-      if (rollsLeft > 1 && sum < value + 0.2) {
-        search(rollsLeft - 1, sum)
-      }
-    }
+  // Compare lo and lo-1 to find the nearest value
+  let nearest = sums[lo]!
+  if (lo > 0 && Math.abs(sums[lo - 1]! - value) < Math.abs(nearest - value)) {
+    nearest = sums[lo - 1]!
   }
-
-  search(6, 0)
 
   // Keep original if within display rounding tolerance (e.g. 5.18 displays as 5.2)
-  if (minDiff < 0.2) {
-    return value
-  }
+  if (Math.abs(value - nearest) < 0.2) return value
 
   return nearest
 }
@@ -256,18 +329,7 @@ export function validateAndCorrectStat(stat: ParsedStat, rarity?: ArtifactRarity
  * Check if a stat type is a substat
  */
 function isSubstatType(type: string): type is SubstatType {
-  return [
-    'HP',
-    'ATK',
-    'DEF',
-    'HP%',
-    'ATK%',
-    'DEF%',
-    'Elemental Mastery',
-    'Energy Recharge',
-    'CRIT Rate',
-    'CRIT DMG',
-  ].includes(type)
+  return SUBSTAT_TYPES.has(type)
 }
 
 /**
@@ -276,7 +338,7 @@ function isSubstatType(type: string): type is SubstatType {
  */
 export function parseLevel(text: string): number | null {
   const match = text.match(/\d\d?/)
-  const level = (match && match[0]) ? parseInt(match[0], 10) : NaN
+  const level = match && match[0] ? parseInt(match[0], 10) : NaN
   if (!isNaN(level) && level >= 0 && level <= 20) {
     return level
   }
@@ -299,7 +361,10 @@ export function parseSlot(text: string): ArtifactSlot | null {
 /**
  * Minimum number of substats guaranteed for a given rarity and level
  */
-function minExpectedSubstats(rarity: ArtifactRarity | undefined, level: number | null | undefined): number {
+function minExpectedSubstats(
+  rarity: ArtifactRarity | undefined,
+  level: number | null | undefined,
+): number {
   const lvl = level ?? 0
   if (rarity === 5) return lvl >= 4 ? 4 : 3
   if (rarity === 4) return lvl >= 8 ? 4 : lvl >= 4 ? 3 : 2
@@ -312,7 +377,8 @@ function minExpectedSubstats(rarity: ArtifactRarity | undefined, level: number |
  * Maximum total roll events for a given rarity and level
  */
 function maxTotalRolls(rarity: ArtifactRarity, level: number): number {
-  const maxStart = rarity === 5 ? 4 : rarity === 4 ? 3 : rarity === 3 ? 2 : rarity === 2 ? 1 : 0
+  const maxStart =
+    rarity === 5 ? 4 : rarity === 4 ? 3 : rarity === 3 ? 2 : rarity === 2 ? 1 : 0
   return maxStart + Math.floor(level / 4)
 }
 
@@ -333,7 +399,10 @@ function minRollsNeeded(type: SubstatType, value: number, rarity: ArtifactRarity
  * Parse artifact from region-based OCR results
  * More accurate than full-text parsing because each field is extracted from a specific region
  */
-export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starCount?: 1 | 2 | 3 | 4 | 5): OCRResult {
+export function parseArtifactFromRegions(
+  regionResults: RegionOCRResult[],
+  starCount?: 1 | 2 | 3 | 4 | 5,
+): OCRResult {
   const regions = getRegionResultsMap(regionResults)
   const errors: string[] = []
 
@@ -371,7 +440,7 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
   let mainStat: { type: MainStatType; value: number } | undefined
 
   // Try to parse main stat name
-  const mainStatParsed = parseStatLine(mainStatNameText + '+' + mainStatValueText)
+  const mainStatParsed = parseStatLine(mainStatNameText + '+' + mainStatValueText, rarity)
   if (mainStatParsed) {
     mainStat = {
       type: mainStatParsed.type as MainStatType,
@@ -388,7 +457,9 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
         value: statValue,
       }
     } else {
-      errors.push(`Could not parse main stat from: name="${mainStatNameText}", value="${mainStatValueText}"`)
+      errors.push(
+        `Could not parse main stat from: name="${mainStatNameText}", value="${mainStatValueText}"`,
+      )
     }
   }
 
@@ -397,7 +468,9 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
     if (corrected !== mainStat.value) {
       const diff = Math.abs(mainStat.value - corrected)
       if (diff >= 1.0) {
-        errors.push(`Main stat value ${mainStat.value} does not match expected ${corrected} for +${level} ${rarity}★`)
+        errors.push(
+          `Main stat value ${mainStat.value} does not match expected ${corrected} for +${level} ${rarity}★`,
+        )
       }
       mainStat = { ...mainStat, value: corrected }
     }
@@ -427,14 +500,16 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
 
     // Apply OCR error correction
     const correctedText = correctOCRErrors(text)
-    const parsed = parseStatLine(correctedText)
+    const parsed = parseStatLine(correctedText, rarity)
 
     if (parsed && isSubstatType(parsed.type)) {
       const corrected = validateAndCorrectStat(parsed, rarity)
       substats.push({
         type: corrected.type as SubstatType,
         value: corrected.value,
-        rollCount: rarity ? minRollsNeeded(corrected.type as SubstatType, corrected.value, rarity) : undefined,
+        rollCount: rarity
+          ? minRollsNeeded(corrected.type as SubstatType, corrected.value, rarity)
+          : undefined,
         ...(isUnactivated ? { unactivated: true } : {}),
       })
     } else {
@@ -445,7 +520,10 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
   // Validate total rolls
   if (rarity != null && level != null && substats.length > 0) {
     const maxRolls = maxTotalRolls(rarity, level)
-    const minRolls = substats.reduce((sum, s) => sum + minRollsNeeded(s.type, s.value, rarity), 0)
+    const minRolls = substats.reduce(
+      (sum, s) => sum + minRollsNeeded(s.type, s.value, rarity),
+      0,
+    )
     if (minRolls > maxRolls) {
       errors.push(
         `Substat values require at least ${minRolls} rolls but +${level} ${rarity}★ artifact allows at most ${maxRolls}`,
@@ -458,13 +536,9 @@ export function parseArtifactFromRegions(regionResults: RegionOCRResult[], starC
     level: level ?? undefined,
     rarity: rarity ?? undefined,
     slot: slot ?? undefined,
+    pieceName: pieceNameText || undefined,
     mainStat,
     substats: substats.length > 0 ? substats : undefined,
-  }
-
-  // Add piece name to artifact (not part of Artifact type yet, but useful)
-  if (pieceNameText) {
-    ;(artifact as any).pieceName = pieceNameText
   }
 
   // Add warnings for missing fields
@@ -505,31 +579,5 @@ function formatRegionResults(results: RegionOCRResult[]): string {
  */
 function parseStatType(text: string): MainStatType | SubstatType | null {
   const normalized = text.trim().toLowerCase().replace(/\s+/g, ' ')
-
-  // Map common variations to stat types
-  const statMap: Record<string, MainStatType | SubstatType> = {
-    'crit rate': 'CRIT Rate',
-    'crit dmg': 'CRIT DMG',
-    'crit damage': 'CRIT DMG',
-    'atk%': 'ATK%',
-    'atk': 'ATK',
-    'attack': 'ATK',
-    'hp%': 'HP%',
-    'hp': 'HP',
-    'def%': 'DEF%',
-    'def': 'DEF',
-    'elemental mastery': 'Elemental Mastery',
-    'energy recharge': 'Energy Recharge',
-    'pyro dmg bonus': 'Pyro DMG Bonus',
-    'hydro dmg bonus': 'Hydro DMG Bonus',
-    'cryo dmg bonus': 'Cryo DMG Bonus',
-    'electro dmg bonus': 'Electro DMG Bonus',
-    'anemo dmg bonus': 'Anemo DMG Bonus',
-    'geo dmg bonus': 'Geo DMG Bonus',
-    'dendro dmg bonus': 'Dendro DMG Bonus',
-    'physical dmg bonus': 'Physical DMG Bonus',
-    'healing bonus': 'Healing Bonus',
-  }
-
-  return statMap[normalized] ?? null
+  return STAT_ALIAS_MAP.get(normalized) ?? null
 }
