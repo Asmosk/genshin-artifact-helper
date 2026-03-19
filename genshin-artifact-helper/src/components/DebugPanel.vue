@@ -67,14 +67,6 @@ const emit = defineEmits<{
       </button>
       <button
         class="btn btn-secondary debug-btn"
-        :class="{ 'debug-btn-active': debugShowHistograms }"
-        :disabled="!debugShowStarDetection || !debugStarData"
-        @click="emit('update:debugShowHistograms', !debugShowHistograms)"
-      >
-        Draw Color Histograms
-      </button>
-      <button
-        class="btn btn-secondary debug-btn"
         :class="{ 'debug-btn-active': showRegionOffsetSetup }"
         @click="emit('toggleRegionOffsetSetup')"
       >
@@ -108,6 +100,17 @@ const emit = defineEmits<{
           >
             Reset Defaults
           </button>
+        </div>
+        <div class="star-setting-row star-histogram-row">
+          <label>
+            <input
+              type="checkbox"
+              :checked="debugShowHistograms"
+              :disabled="!debugStarData"
+              @change="emit('update:debugShowHistograms', !debugShowHistograms)"
+            />
+            Draw Color Histograms
+          </label>
         </div>
         <!-- Algorithm selector -->
         <div class="star-setting-row">
@@ -451,28 +454,24 @@ const emit = defineEmits<{
           </div>
         </template>
       </div>
-      <div class="preproc-override-panel">
-        <div class="preproc-override-header">
-          <span>OCR Region Preprocessing Overrides</span>
-          <div class="preproc-override-header-controls">
-            <label>
-              <input
-                type="checkbox"
-                :checked="debugPreprocessingEnabled"
-                @change="emit('update:debugPreprocessingEnabled', !debugPreprocessingEnabled)"
-              />
-              Enable
-            </label>
-            <button
-              class="btn btn-small"
-              @click="emit('update:debugPreprocessingOptions', { ...DEFAULT_PREPROCESSING })"
-            >
-              Reset
-            </button>
-          </div>
+      <button
+        class="btn btn-secondary debug-btn"
+        :class="{ 'debug-btn-active': debugPreprocessingEnabled }"
+        @click="emit('update:debugPreprocessingEnabled', !debugPreprocessingEnabled)"
+      >
+        OCR Region Preprocessing Setup
+      </button>
+      <div v-if="debugPreprocessingEnabled" class="preproc-settings-panel">
+        <div class="preproc-settings-header">
+          <span>Preprocessing Options</span>
+          <button
+            class="btn btn-small"
+            @click="emit('update:debugPreprocessingOptions', { ...DEFAULT_PREPROCESSING })"
+          >
+            Reset Defaults
+          </button>
         </div>
-        <div v-if="debugPreprocessingEnabled" class="preproc-override-controls">
-          <div class="preproc-bool-row">
+        <div class="preproc-bool-row">
             <label
               ><input
                 type="checkbox"
@@ -609,7 +608,6 @@ const emit = defineEmits<{
             >
           </div>
         </div>
-      </div>
     </div>
   </section>
 </template>
@@ -733,6 +731,20 @@ const emit = defineEmits<{
   cursor: pointer;
 }
 
+.star-histogram-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #aaa;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+.star-histogram-row input[type='checkbox'] {
+  accent-color: #ffcc32;
+}
+
 .star-finder-toggle {
   display: flex;
   gap: 0.25rem;
@@ -744,46 +756,24 @@ const emit = defineEmits<{
   border: 1px solid #ffcc32;
 }
 
-.preproc-override-panel {
+.preproc-settings-panel {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   padding: 0.6rem;
   background: #1a1a1a;
   border-radius: 4px;
-  border: 1px solid #2200aa;
+  border: 1px solid #554400;
 }
 
-.preproc-override-header {
+.preproc-settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 0.8rem;
-  color: #aaaaff;
+  color: #ffcc32;
   font-weight: bold;
-  font-family: monospace;
   margin-bottom: 0.25rem;
-}
-
-.preproc-override-header-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.preproc-override-header-controls label {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  color: #aaa;
-  cursor: pointer;
-}
-
-.preproc-override-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
 }
 
 .preproc-bool-row label {
@@ -797,14 +787,13 @@ const emit = defineEmits<{
 }
 
 .preproc-bool-row input[type='checkbox'] {
-  accent-color: #aaaaff;
+  accent-color: #ffcc32;
 }
 
 .preproc-slider-row {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  padding-left: 0.5rem;
 }
 
 .preproc-slider-row label {
@@ -816,12 +805,12 @@ const emit = defineEmits<{
 }
 
 .preproc-slider-row label span {
-  color: #aaaaff;
+  color: #ffcc32;
 }
 
 .preproc-slider-row input[type='range'] {
   width: 100%;
-  accent-color: #aaaaff;
+  accent-color: #ffcc32;
   cursor: pointer;
 }
 </style>
