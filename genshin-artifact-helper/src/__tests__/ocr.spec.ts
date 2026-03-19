@@ -259,14 +259,12 @@ describe('OCR Integration Tests', () => {
       if (!rawPieceName) {
         warnings.push(`⚠ pieceName OCR returned empty string (expected set: "${expected.set}")`)
       } else {
-        warnings.push(
-          `ℹ setName: expected="${expected.set}", rawPieceName="${rawPieceName}" (set→piece mapping not implemented)`,
-        )
+
       }
     }
 
     // Parse artifact — use ground-truth rarity as star count since we bypassed star detection
-    const starCount = expected.rarity as 3 | 4 | 5 | undefined
+    const starCount = expected.rarity as 1 | 2 | 3 | 4 | 5 | undefined
     const parseResult = parseArtifactFromRegions(regionResult.regions, starCount)
 
     expect(parseResult.artifact, `${imageFile}: parsing completely failed`).toBeDefined()
