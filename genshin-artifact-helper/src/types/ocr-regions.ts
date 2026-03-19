@@ -165,6 +165,12 @@ export interface RegionOCROptions {
 
   /** Debug-only: applied at maximum priority, overrides all template settings */
   debugPreprocessingOverrides?: Partial<PreprocessingOptions>
+
+  /**
+   * Skip internal star detection and use this position as the anchor point instead.
+   * Useful in tests where the correct star location is already known from ground truth.
+   */
+  anchorOverride?: { x: number; y: number }
 }
 
 /**

@@ -5,6 +5,7 @@
 
 import type {
   ArtifactRegionLayout,
+  Rectangle,
   RegionOCRResult,
   RegionOCROptions,
   RegionBasedOCRResult,
@@ -153,8 +154,8 @@ async function processRegionsSequential(
 
 /**
  * Main function: Recognize all regions in an artifact image.
- * Always runs star detection to determine the anchor point.
- * Throws if no stars are found.
+ * Runs star detection to determine the anchor point unless options.anchorOverride is provided.
+ * Throws if no stars are found (and no override is supplied).
  *
  * Preprocessing is controlled entirely by the layout's defaultPreprocessingOptions
  * (with per-region overrides via OCRRegion.preprocessingOverrides).
@@ -168,19 +169,31 @@ export async function recognizeRegions(
   const warnings: string[] = []
 
   try {
-    // 1. Detect stars — this is the canonical anchor point
-    const fullScreenDetection = detectStarsInFullScreen(canvas, canvas.height)
-    if (!fullScreenDetection) {
-      throw new Error('Star detection failed: no stars found')
+    // 1. Determine anchor point — use override if provided, otherwise run star detection
+    let starDetection: RegionBasedOCRResult['starDetection']
+    let anchorPx: { x: number; y: number }
+    let starRegionBounds: Rectangle | undefined
+
+    if (options.anchorOverride) {
+      anchorPx = options.anchorOverride
+      starDetection = undefined
+      starRegionBounds = undefined
+    } else {
+      const fullScreenDetection = detectStarsInFullScreen(canvas, canvas.height)
+      if (!fullScreenDetection) {
+        throw new Error('Star detection failed: no stars found')
+      }
+      starDetection = fullScreenDetection.stars
+      anchorPx = { x: starDetection.position.x, y: starDetection.position.y }
+      starRegionBounds = fullScreenDetection.regionBounds
     }
 
-    const starDetection = fullScreenDetection.stars
-    const anchorPx = { x: starDetection.position.x, y: starDetection.position.y }
-
-    // 2. Calculate pixel positions for all regions from detected anchor
+    // 2. Calculate pixel positions for all regions from anchor
     const positions = calculateAllRegionPositions(layout, canvas.width, canvas.height, anchorPx)
-    // Store star region bounds for UI visualization
-    positions.set('starAnchor', fullScreenDetection.regionBounds)
+    // Store star region bounds for UI visualization (only available when star detection ran)
+    if (starRegionBounds) {
+      positions.set('starAnchor', starRegionBounds)
+    }
 
     // 3. Process regions using layout-defined preprocessing as ground truth
     const regionResults = options.parallelProcessing
