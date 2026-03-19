@@ -14,7 +14,10 @@ const INVENTORY_PROBE_Y_OFFSET = 0.045
 // #ECE5D8 — the cream background of the inventory artifact panel
 const INVENTORY_BG = { r: 236, g: 229, b: 216 }
 
-const COLOR_TOLERANCE = 2
+// Color tolerance for detecting colors.
+// Note: in browser colors are sampled after ICC profile of the monitor was applied,
+// while outside the browser (in node) ICC profile will not be applied.
+const COLOR_TOLERANCE = 5
 
 // Half-width of the horizontal pixel strip sampled for the colour probe
 const PROBE_HALF_WIDTH = 5
