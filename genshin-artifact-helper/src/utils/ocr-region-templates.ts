@@ -4,8 +4,13 @@
  * Pixel position: x = anchorPx.x + region.x * imageWidth
  */
 
-import type { ArtifactRegionLayout, ScreenType, OCRRegion, PreprocessingOptions } from '@/types/ocr-regions'
+import type { ArtifactRegionLayout, ArtifactScreenType, OCRRegion, PreprocessingOptions } from '@/types/ocr-regions'
 import { REGION_NAMES } from '@/types/ocr-regions'
+import {
+  CHARACTER_CALIBRATED,
+  INVENTORY_CALIBRATED,
+  REWARDS_CALIBRATED,
+} from '@/generated/ocr-region-calibration'
 
 /**
  * Default preprocessing applied to every region unless overridden.
@@ -63,22 +68,26 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
     height: 1440,
   },
   defaultPreprocessingOptions: DEFAULT_PREPROCESSING,
+  starSearchBounds: { xMin: 0.685, xMax: 0.82, yMin: 0.25, yMax: 0.4 },
 
   regions: {
     pieceName: createRegion(
       REGION_NAMES.PIECE_NAME,
-      -0.01, -0.2328, 0.182, 0.048,
+      INVENTORY_CALIBRATED.pieceName.x, INVENTORY_CALIBRATED.pieceName.y,
+      INVENTORY_CALIBRATED.pieceName.width, INVENTORY_CALIBRATED.pieceName.height,
       'text',
     ),
 
     slotName: createRegion(REGION_NAMES.SLOT_NAME,
-      -0.009, -0.172, 0.125, 0.03,
+      INVENTORY_CALIBRATED.slotName.x, INVENTORY_CALIBRATED.slotName.y,
+      INVENTORY_CALIBRATED.slotName.width, INVENTORY_CALIBRATED.slotName.height,
       'text',
     ),
 
     level: createRegion(
       REGION_NAMES.LEVEL,
-      -0.006, 0.046, 0.028, 0.036,
+      INVENTORY_CALIBRATED.level.x, INVENTORY_CALIBRATED.level.y,
+      INVENTORY_CALIBRATED.level.width, INVENTORY_CALIBRATED.level.height,
       'number',
       {
         preprocessingOverrides: {
@@ -89,26 +98,31 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
     ),
 
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
-      -0.008, -0.100, 0.104, 0.033,
+      INVENTORY_CALIBRATED.mainStatName.x, INVENTORY_CALIBRATED.mainStatName.y,
+      INVENTORY_CALIBRATED.mainStatName.width, INVENTORY_CALIBRATED.mainStatName.height,
       'text',
     ),
 
     mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE,
-      -0.007, -0.073, 0.077, 0.05,
+      INVENTORY_CALIBRATED.mainStatValue.x, INVENTORY_CALIBRATED.mainStatValue.y,
+      INVENTORY_CALIBRATED.mainStatValue.width, INVENTORY_CALIBRATED.mainStatValue.height,
       'mixed',
     ),
 
     substat1: createRegion(REGION_NAMES.SUBSTAT_1,
-      0.004, 0.092, 0.162, 0.04,
+      INVENTORY_CALIBRATED.substat1.x, INVENTORY_CALIBRATED.substat1.y,
+      INVENTORY_CALIBRATED.substat1.width, INVENTORY_CALIBRATED.substat1.height,
       'mixed',
       {
+        optional: true,
         preprocessingOverrides: {
           grayscale: true,
         }
       },
     ),
     substat2: createRegion(REGION_NAMES.SUBSTAT_2,
-      0.004, 0.127, 0.162, 0.04,
+      INVENTORY_CALIBRATED.substat2.x, INVENTORY_CALIBRATED.substat2.y,
+      INVENTORY_CALIBRATED.substat2.width, INVENTORY_CALIBRATED.substat2.height,
       'mixed',
       {
         optional: true,
@@ -118,7 +132,8 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       },
     ),
     substat3: createRegion(REGION_NAMES.SUBSTAT_3,
-      0.004, 0.163, 0.162, 0.04,
+      INVENTORY_CALIBRATED.substat3.x, INVENTORY_CALIBRATED.substat3.y,
+      INVENTORY_CALIBRATED.substat3.width, INVENTORY_CALIBRATED.substat3.height,
       'mixed',
       {
         optional: true,
@@ -128,7 +143,8 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       },
     ),
     substat4: createRegion(REGION_NAMES.SUBSTAT_4,
-      0.004, 0.199, 0.162, 0.04,
+      INVENTORY_CALIBRATED.substat4.x, INVENTORY_CALIBRATED.substat4.y,
+      INVENTORY_CALIBRATED.substat4.width, INVENTORY_CALIBRATED.substat4.height,
       'mixed',
       {
         optional: true,
@@ -138,7 +154,8 @@ const INVENTORY_LAYOUT: ArtifactRegionLayout = {
       }
     ),
     substat4SecondLine: createRegion(REGION_NAMES.SUBSTAT_4_2,
-      -0.006, 0.23, 0.172, 0.034,
+      INVENTORY_CALIBRATED.substat4SecondLine.x, INVENTORY_CALIBRATED.substat4SecondLine.y,
+      INVENTORY_CALIBRATED.substat4SecondLine.width, INVENTORY_CALIBRATED.substat4SecondLine.height,
       'mixed',
       {
         optional: true,
@@ -162,11 +179,14 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     height: 1440,
   },
   defaultPreprocessingOptions: DEFAULT_PREPROCESSING,
+  // xMin=0.68 excludes the equipped artifact column in comparison mode (~53–63% imageWidth)
+  starSearchBounds: { xMin: 0.75, xMax: 0.88, yMin: 0.20, yMax: 0.35 },
 
   regions: {
     pieceName: createRegion(
       REGION_NAMES.PIECE_NAME,
-      -0.01, -0.15, 0.165, 0.048,
+      CHARACTER_CALIBRATED.pieceName.x, CHARACTER_CALIBRATED.pieceName.y,
+      CHARACTER_CALIBRATED.pieceName.width, CHARACTER_CALIBRATED.pieceName.height,
       'text',
       {
         preprocessingOverrides: {
@@ -177,7 +197,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     ),
 
     slotName: createRegion(REGION_NAMES.SLOT_NAME,
-      -0.009, -0.099, 0.125, 0.03,
+      CHARACTER_CALIBRATED.slotName.x, CHARACTER_CALIBRATED.slotName.y,
+      CHARACTER_CALIBRATED.slotName.width, CHARACTER_CALIBRATED.slotName.height,
       'text',
       {
         preprocessingOverrides: {
@@ -189,7 +210,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
 
     level: createRegion(
       REGION_NAMES.LEVEL,
-      -0.006, 0.025, 0.028, 0.036,
+      CHARACTER_CALIBRATED.level.x, CHARACTER_CALIBRATED.level.y,
+      CHARACTER_CALIBRATED.level.width, CHARACTER_CALIBRATED.level.height,
       'number',
       {
         preprocessingOverrides: {
@@ -200,7 +222,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     ),
 
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
-      -0.004, -0.058, 0.104, 0.033,
+      CHARACTER_CALIBRATED.mainStatName.x, CHARACTER_CALIBRATED.mainStatName.y,
+      CHARACTER_CALIBRATED.mainStatName.width, CHARACTER_CALIBRATED.mainStatName.height,
       'text',
       {
         preprocessingOverrides: {
@@ -211,7 +234,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     ),
 
     mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE,
-      0.111, -0.062, 0.043, 0.04,
+      CHARACTER_CALIBRATED.mainStatValue.x, CHARACTER_CALIBRATED.mainStatValue.y,
+      CHARACTER_CALIBRATED.mainStatValue.width, CHARACTER_CALIBRATED.mainStatValue.height,
       'mixed',
       {
         preprocessingOverrides: {
@@ -222,16 +246,19 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
     ),
 
     substat1: createRegion(REGION_NAMES.SUBSTAT_1,
-      0.002, 0.061, 0.154, 0.04,
+      CHARACTER_CALIBRATED.substat1.x, CHARACTER_CALIBRATED.substat1.y,
+      CHARACTER_CALIBRATED.substat1.width, CHARACTER_CALIBRATED.substat1.height,
       'mixed',
       {
+        optional: true,
         preprocessingOverrides: {
           grayscale: true,
         }
       },
     ),
     substat2: createRegion(REGION_NAMES.SUBSTAT_2,
-      0.002, 0.092, 0.154, 0.04,
+      CHARACTER_CALIBRATED.substat2.x, CHARACTER_CALIBRATED.substat2.y,
+      CHARACTER_CALIBRATED.substat2.width, CHARACTER_CALIBRATED.substat2.height,
       'mixed',
       {
         optional: true,
@@ -241,7 +268,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
       },
     ),
     substat3: createRegion(REGION_NAMES.SUBSTAT_3,
-      0.002, 0.123, 0.154, 0.04,
+      CHARACTER_CALIBRATED.substat3.x, CHARACTER_CALIBRATED.substat3.y,
+      CHARACTER_CALIBRATED.substat3.width, CHARACTER_CALIBRATED.substat3.height,
       'mixed',
       {
         optional: true,
@@ -251,7 +279,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
       },
     ),
     substat4: createRegion(REGION_NAMES.SUBSTAT_4,
-      0.002, 0.156, 0.154, 0.04,
+      CHARACTER_CALIBRATED.substat4.x, CHARACTER_CALIBRATED.substat4.y,
+      CHARACTER_CALIBRATED.substat4.width, CHARACTER_CALIBRATED.substat4.height,
       'mixed',
       {
         optional: true,
@@ -261,7 +290,8 @@ const CHARACTER_LAYOUT: ArtifactRegionLayout = {
       }
     ),
     substat4SecondLine: createRegion(REGION_NAMES.SUBSTAT_4_2,
-      -0.006, 0.183, 0.162, 0.034,
+      CHARACTER_CALIBRATED.substat4SecondLine.x, CHARACTER_CALIBRATED.substat4SecondLine.y,
+      CHARACTER_CALIBRATED.substat4SecondLine.width, CHARACTER_CALIBRATED.substat4SecondLine.height,
       'mixed',
       {
         optional: true,
@@ -285,22 +315,27 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
     height: 1440,
   },
   defaultPreprocessingOptions: DEFAULT_PREPROCESSING,
+  // Center panel where reward artifact stars appear
+  starSearchBounds: { xMin: 0.38, xMax: 0.5, yMin: 0.15, yMax: 0.55 },
 
   regions: {
     pieceName: createRegion(
       REGION_NAMES.PIECE_NAME,
-      -0.01, -0.2328, 0.182, 0.048,
+      REWARDS_CALIBRATED.pieceName.x, REWARDS_CALIBRATED.pieceName.y,
+      REWARDS_CALIBRATED.pieceName.width, REWARDS_CALIBRATED.pieceName.height,
       'text',
     ),
 
     slotName: createRegion(REGION_NAMES.SLOT_NAME,
-      -0.009, -0.172, 0.125, 0.03,
+      REWARDS_CALIBRATED.slotName.x, REWARDS_CALIBRATED.slotName.y,
+      REWARDS_CALIBRATED.slotName.width, REWARDS_CALIBRATED.slotName.height,
       'text',
     ),
 
     level: createRegion(
       REGION_NAMES.LEVEL,
-      -0.006, 0.046, 0.028, 0.036,
+      REWARDS_CALIBRATED.level.x, REWARDS_CALIBRATED.level.y,
+      REWARDS_CALIBRATED.level.width, REWARDS_CALIBRATED.level.height,
       'number',
       {
         preprocessingOverrides: {
@@ -311,26 +346,31 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
     ),
 
     mainStatName: createRegion(REGION_NAMES.MAIN_STAT_NAME,
-      -0.008, -0.100, 0.104, 0.033,
+      REWARDS_CALIBRATED.mainStatName.x, REWARDS_CALIBRATED.mainStatName.y,
+      REWARDS_CALIBRATED.mainStatName.width, REWARDS_CALIBRATED.mainStatName.height,
       'text',
     ),
 
     mainStatValue: createRegion(REGION_NAMES.MAIN_STAT_VALUE,
-      -0.007, -0.073, 0.077, 0.05,
+      REWARDS_CALIBRATED.mainStatValue.x, REWARDS_CALIBRATED.mainStatValue.y,
+      REWARDS_CALIBRATED.mainStatValue.width, REWARDS_CALIBRATED.mainStatValue.height,
       'mixed',
     ),
 
     substat1: createRegion(REGION_NAMES.SUBSTAT_1,
-      0.004, 0.092, 0.162, 0.04,
+      REWARDS_CALIBRATED.substat1.x, REWARDS_CALIBRATED.substat1.y,
+      REWARDS_CALIBRATED.substat1.width, REWARDS_CALIBRATED.substat1.height,
       'mixed',
       {
+        optional: true,
         preprocessingOverrides: {
           grayscale: true,
         }
       },
     ),
     substat2: createRegion(REGION_NAMES.SUBSTAT_2,
-      0.004, 0.127, 0.162, 0.04,
+      REWARDS_CALIBRATED.substat2.x, REWARDS_CALIBRATED.substat2.y,
+      REWARDS_CALIBRATED.substat2.width, REWARDS_CALIBRATED.substat2.height,
       'mixed',
       {
         optional: true,
@@ -340,7 +380,8 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
       },
     ),
     substat3: createRegion(REGION_NAMES.SUBSTAT_3,
-      0.004, 0.163, 0.162, 0.04,
+      REWARDS_CALIBRATED.substat3.x, REWARDS_CALIBRATED.substat3.y,
+      REWARDS_CALIBRATED.substat3.width, REWARDS_CALIBRATED.substat3.height,
       'mixed',
       {
         optional: true,
@@ -350,7 +391,8 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
       },
     ),
     substat4: createRegion(REGION_NAMES.SUBSTAT_4,
-      0.004, 0.199, 0.162, 0.04,
+      REWARDS_CALIBRATED.substat4.x, REWARDS_CALIBRATED.substat4.y,
+      REWARDS_CALIBRATED.substat4.width, REWARDS_CALIBRATED.substat4.height,
       'mixed',
       {
         optional: true,
@@ -360,7 +402,8 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
       }
     ),
     substat4SecondLine: createRegion(REGION_NAMES.SUBSTAT_4_2,
-      -0.006, 0.23, 0.172, 0.034,
+      INVENTORY_CALIBRATED.substat4SecondLine.x, INVENTORY_CALIBRATED.substat4SecondLine.y,
+      INVENTORY_CALIBRATED.substat4SecondLine.width, INVENTORY_CALIBRATED.substat4SecondLine.height,
       'mixed',
       {
         optional: true,
@@ -375,7 +418,7 @@ const REWARDS_LAYOUT: ArtifactRegionLayout = {
 /**
  * All predefined region templates
  */
-export const REGION_TEMPLATES: Record<ScreenType, ArtifactRegionLayout> = {
+export const REGION_TEMPLATES: Record<ArtifactScreenType, ArtifactRegionLayout> = {
   inventory: INVENTORY_LAYOUT,
   character: CHARACTER_LAYOUT,
   rewards: REWARDS_LAYOUT,
@@ -384,24 +427,35 @@ export const REGION_TEMPLATES: Record<ScreenType, ArtifactRegionLayout> = {
 /**
  * Get a region template by screen type
  */
-export function getRegionTemplate(screenType: ScreenType): ArtifactRegionLayout {
+export function getRegionTemplate(screenType: ArtifactScreenType): ArtifactRegionLayout {
   return REGION_TEMPLATES[screenType]
 }
 /**
+ * Genshin Impact's UI scales all panel dimensions with effectiveHeight,
+ * defined as the height of the largest 16:9 viewport that fits in the image.
+ * Template coordinates are fractions of effectiveRefWidth / effectiveHeight.
+ */
+const GAME_MIN_ASPECT_RATIO = 16 / 9
+
+/**
  * Calculate absolute pixel coordinates from anchor-relative region definition.
- * pixelX = anchorPx.x + region.x * imageWidth
+ * Template x/y values are fractions of effectiveRefWidth/effectiveHeight respectively.
  */
 export function calculateRegionPosition(
   region: OCRRegion,
   imageWidth: number,
   imageHeight: number,
   anchorPx: { x: number; y: number },
+  layout: ArtifactRegionLayout,
 ): { x: number; y: number; width: number; height: number } {
+  const effectiveHeight = Math.min(imageHeight, imageWidth / GAME_MIN_ASPECT_RATIO)
+  const refRes = layout.referenceResolution ?? { width: 3440, height: 1440 }
+  const effectiveRefWidth = effectiveHeight * (refRes.width / refRes.height)
   return {
-    x: Math.round(anchorPx.x + region.x * imageWidth),
-    y: Math.round(anchorPx.y + region.y * imageHeight),
-    width: Math.round(region.width * imageWidth),
-    height: Math.round(region.height * imageHeight),
+    x: Math.floor(anchorPx.x + region.x * effectiveRefWidth),
+    y: Math.floor(anchorPx.y + region.y * effectiveHeight),
+    width: Math.ceil(region.width * effectiveRefWidth),
+    height: Math.ceil(region.height * effectiveHeight),
   }
 }
 
@@ -418,7 +472,7 @@ export function calculateAllRegionPositions(
   const positions = new Map<string, { x: number; y: number; width: number; height: number }>()
 
   for (const [, region] of Object.entries(layout.regions)) {
-    positions.set(region.name, calculateRegionPosition(region, imageWidth, imageHeight, anchorPx))
+    positions.set(region.name, calculateRegionPosition(region, imageWidth, imageHeight, anchorPx, layout))
   }
 
   return positions

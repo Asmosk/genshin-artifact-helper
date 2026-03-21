@@ -4,7 +4,7 @@ import { useCaptureStore } from '@/stores/capture'
 import { useOCRStore } from '@/stores/ocr'
 import { useSettingsStore } from '@/stores/settings'
 import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
-import type { ArtifactRegionLayout, ScreenType } from '@/types/ocr-regions'
+import type { ArtifactRegionLayout, ArtifactScreenType } from '@/types/ocr-regions'
 import type { StarDetectionDebugData, StarDetectionSettings } from '@/utils/star-detection'
 
 export function useCanvasPreview(params: {
@@ -38,7 +38,7 @@ export function useCanvasPreview(params: {
     }
 
     try {
-      return getRegionTemplate(configuredType as ScreenType)
+      return getRegionTemplate(configuredType as ArtifactScreenType)
     } catch {
       return null
     }

@@ -17,7 +17,7 @@ import { recognizeRegions } from '@/utils/ocr-regions'
 import { parseArtifactFromRegions } from '@/utils/parsing'
 import { getRegionTemplate } from '@/utils/ocr-region-templates'
 import type { Artifact } from '@/types/artifact'
-import type { ScreenType } from '@/types/ocr-regions'
+import type { ArtifactScreenType } from '@/types/ocr-regions'
 
 // Polyfill browser APIs used by cropCanvas / preprocessRegion / preprocessing.ts
 ;(globalThis as any).document = {
@@ -243,7 +243,7 @@ describe('OCR Integration Tests', () => {
       return
     }
 
-    const screenType = expected.screen as ScreenType
+    const screenType = expected.screen as ArtifactScreenType
 
     // Load image and run OCR with ground-truth anchor to isolate OCR quality
     const canvas = await loadFixtureCanvas(imageFile)

@@ -14,7 +14,8 @@
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
-    "generate:rolls": "bun run scripts/generate-roll-tables.ts"
+    "generate:rolls": "bun run scripts/generate-roll-tables.ts",
+    "generate:ocr-regions": "bun run scripts/generate-ocr-calibration.ts"
   },
   "dependencies": {
     "pinia": "^3.0.4",

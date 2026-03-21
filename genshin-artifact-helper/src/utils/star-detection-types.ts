@@ -22,6 +22,8 @@ export type StarDetectorFn = (
   height: number,
   screenHeight: number,
   settings: StarDetectionSettings,
+  /** Optional pixel bounds to constrain the search region (already converted from fractions) */
+  bounds?: { xMin: number; xMax: number; yMin: number; yMax: number },
 ) => { center: { x: number; y: number }; count: number } | null
 
 export interface StarDetectionSettings {

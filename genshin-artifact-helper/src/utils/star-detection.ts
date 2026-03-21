@@ -45,6 +45,73 @@ export { debugDetectStars } from '@/utils/star-detection-debug'
  * @param detector - Star detector strategy (defaults to projectionStarDetector)
  * @returns Object containing star detection result and region bounds, or null if not found
  */
+/**
+ * Detect stars within a constrained fractional bounding box of the canvas.
+ * Converts fractional bounds to pixel coords, then runs the detector within that region.
+ * Use this instead of `detectStarsInFullScreen` when the screen type is known,
+ * to avoid false positives (comparison column, starred icon, etc.).
+ *
+ * @param canvas   - Full game window capture
+ * @param bounds   - Fractional bounding box (0–1) from `ArtifactRegionLayout.starSearchBounds`
+ * @param screenHeight - Screen height for dimension calculations
+ * @param settings - Detection settings
+ * @param detector - Star detector strategy
+ */
+export function detectStarsInBounds(
+  canvas: HTMLCanvasElement,
+  bounds: { xMin: number; xMax: number; yMin: number; yMax: number },
+  screenHeight: number,
+  settings: StarDetectionSettings = defaultStarDetectionSettings,
+  detector: StarDetectorFn = projectionStarDetector,
+): { stars: StarDetectionResult; regionBounds: Rectangle } | null {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+
+  const width = canvas.width
+  const height = canvas.height
+  const imageData = ctx.getImageData(0, 0, width, height)
+  const data = imageData.data
+
+  // Convert fractional bounds to pixel bounds
+  const pixelBounds = {
+    xMin: Math.round(bounds.xMin * width),
+    xMax: Math.round(bounds.xMax * width),
+    yMin: Math.round(bounds.yMin * height),
+    yMax: Math.round(bounds.yMax * height),
+  }
+
+  const detection = detector(data, width, height, screenHeight, settings, pixelBounds)
+  if (!detection) return null
+
+  const starSize = Math.round(screenHeight * settings.starSizePercent)
+  const starDistance = Math.round(screenHeight * settings.starDistancePercent)
+  const numStars = Math.max(1, Math.min(5, detection.count)) as 1 | 2 | 3 | 4 | 5
+
+  const regionWidth = (numStars - 1) * starDistance + starSize * 2
+  const regionHeight = starSize * 2
+  const regionX = Math.max(
+    0,
+    detection.center.x - starDistance * Math.floor((numStars - 1) / 2) - starSize / 2,
+  )
+  const regionY = Math.max(0, detection.center.y - starSize / 2)
+
+  const stars: StarDetectionResult = {
+    count: numStars,
+    position: { x: detection.center.x, y: detection.center.y },
+    confidence: 0.9,
+    bounds: { width: starSize, height: starSize },
+  }
+
+  const regionBounds: Rectangle = {
+    x: regionX,
+    y: regionY,
+    width: regionWidth,
+    height: regionHeight,
+  }
+
+  return { stars, regionBounds }
+}
+
 export function detectStarsInFullScreen(
   canvas: HTMLCanvasElement,
   screenHeight: number,

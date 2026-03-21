@@ -2,7 +2,7 @@ import { ref, computed, watch, type Ref } from 'vue'
 import { useOCRStore } from '@/stores/ocr'
 import { useCaptureStore } from '@/stores/capture'
 import { getRegionTemplate, DEFAULT_PREPROCESSING } from '@/utils/ocr-region-templates'
-import type { ArtifactRegionLayout, ScreenType, PreprocessingOptions } from '@/types/ocr-regions'
+import type { ArtifactRegionLayout, ArtifactScreenType, PreprocessingOptions } from '@/types/ocr-regions'
 import {
   debugDetectStars,
   defaultStarDetectionSettings,
@@ -57,7 +57,7 @@ export function useDebugPanel(params: {
 
   // Region editor state
   const showRegionOffsetSetup = ref(false)
-  const regionEditorScreenType = ref<ScreenType>('inventory')
+  const regionEditorScreenType = ref<ArtifactScreenType>('inventory')
   const regionEditorLayout = ref<ArtifactRegionLayout | null>(null)
 
   function initRegionEditorLayout() {
@@ -82,7 +82,7 @@ export function useDebugPanel(params: {
     }
   }
 
-  function onEditorScreenTypeChange(type: ScreenType) {
+  function onEditorScreenTypeChange(type: ArtifactScreenType) {
     regionEditorScreenType.value = type
     initRegionEditorLayout()
   }

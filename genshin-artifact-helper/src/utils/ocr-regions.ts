@@ -13,9 +13,10 @@ import type {
   PreprocessingOptions,
 } from '@/types/ocr-regions'
 import { getOCRWorker } from './ocr'
-import { calculateAllRegionPositions } from './ocr-region-templates'
+import { calculateAllRegionPositions, calculateRegionPosition } from './ocr-region-templates'
 import { cropCanvas, preprocessRegion, regionContainsText } from './region-extraction'
 import { detectStarsInFullScreen } from './star-detection'
+import { parseSlot, parseStatLine } from './parsing'
 
 /**
  * Process a single region with OCR
@@ -97,7 +98,10 @@ async function processRegionsParallel(
 ): Promise<RegionOCRResult[]> {
   const promises: Promise<RegionOCRResult>[] = []
 
-  for (const [key, region] of Object.entries(layout.regions)) {
+  for (const [, region] of Object.entries(layout.regions)) {
+    // Skip regions that were already processed in a prior validation step
+    if (options.skipRegions?.has(region.name)) continue
+
     const position = positions.get(region.name)
     if (!position) {
       console.warn(`No position found for region: ${region.name}`)
@@ -126,7 +130,10 @@ async function processRegionsSequential(
 ): Promise<RegionOCRResult[]> {
   const results: RegionOCRResult[] = []
 
-  for (const [key, region] of Object.entries(layout.regions)) {
+  for (const [, region] of Object.entries(layout.regions)) {
+    // Skip regions that were already processed in a prior validation step
+    if (options.skipRegions?.has(region.name)) continue
+
     const position = positions.get(region.name)
     if (!position) {
       console.warn(`No position found for region: ${region.name}`)
@@ -150,6 +157,45 @@ async function processRegionsSequential(
   }
 
   return results
+}
+
+/**
+ * Fast artifact identity validation — runs OCR on slotName and mainStatName only.
+ * Returns isArtifact=true if at least one of the two regions parses as valid artifact content.
+ * This is stage 3a in the pipeline: a cheap fast-fail before expensive full OCR.
+ */
+export async function validateArtifactIdentity(
+  canvas: HTMLCanvasElement,
+  layout: ArtifactRegionLayout,
+  anchorPx: { x: number; y: number },
+  options?: Pick<RegionOCROptions, 'debug' | 'debugPreprocessingOverrides'>,
+): Promise<{
+  isArtifact: boolean
+  slotResult: RegionOCRResult
+  mainStatNameResult: RegionOCRResult
+}> {
+  const { slotName, mainStatName } = layout.regions
+
+  const slotPos = calculateRegionPosition(slotName, canvas.width, canvas.height, anchorPx, layout)
+  const mainStatPos = calculateRegionPosition(mainStatName, canvas.width, canvas.height, anchorPx, layout)
+
+  const debug = options?.debug ?? false
+  const overrides = options?.debugPreprocessingOverrides
+
+  const [slotResult, mainStatNameResult] = await Promise.all([
+    processRegion(canvas, slotName, slotPos, layout.defaultPreprocessingOptions, debug, overrides),
+    processRegion(canvas, mainStatName, mainStatPos, layout.defaultPreprocessingOptions, debug, overrides),
+  ])
+
+  const slotValid = parseSlot(slotResult.text) !== null
+  // Append a synthetic value so parseStatLine can match e.g. "ATK%+1"
+  const mainStatValid = parseStatLine(mainStatNameResult.text + '+1') !== null
+
+  return {
+    isArtifact: slotValid || mainStatValid,
+    slotResult,
+    mainStatNameResult,
+  }
 }
 
 /**
@@ -196,9 +242,12 @@ export async function recognizeRegions(
     }
 
     // 3. Process regions using layout-defined preprocessing as ground truth
-    const regionResults = options.parallelProcessing
+    const newResults = options.parallelProcessing
       ? await processRegionsParallel(canvas, layout, positions, options)
       : await processRegionsSequential(canvas, layout, positions, options)
+
+    // Merge precomputed results (from prior validation steps) with newly processed ones
+    const regionResults = [...(options.precomputedResults ?? []), ...newResults]
 
     // 4. Calculate overall confidence
     const validResults = regionResults.filter((r) => r.text.length > 0)

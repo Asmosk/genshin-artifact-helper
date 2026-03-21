@@ -7,10 +7,17 @@ import { ref, computed } from 'vue'
 import { getOCRWorker, terminateGlobalWorker, type OCRProgressCallback } from '@/utils/ocr'
 import { parseArtifactFromRegions } from '@/utils/parsing'
 import type { OCRResult } from '@/types/artifact'
-import type { ScreenType, ArtifactRegionLayout, Rectangle, RegionOCRResult, PreprocessingOptions } from '@/types/ocr-regions'
-import { recognizeRegions } from '@/utils/ocr-regions'
+import type {
+  ArtifactScreenType,
+  DetectedScreenType,
+  ArtifactRegionLayout,
+  Rectangle,
+  RegionOCRResult,
+  PreprocessingOptions,
+} from '@/types/ocr-regions'
+import { recognizeRegions, validateArtifactIdentity } from '@/utils/ocr-regions'
 import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-region-templates'
-import { detectStarsInFullScreen } from '@/utils/star-detection'
+import { detectStarsInBounds } from '@/utils/star-detection'
 import { detectScreenType } from '@/utils/screen-type-detection'
 import { useSettingsStore } from './settings'
 
@@ -32,7 +39,14 @@ export const useOCRStore = defineStore('ocr', () => {
   const detectedRegionPositions = ref<Map<string, Rectangle> | null>(null)
   const detectedAnchorPx = ref<{ x: number; y: number } | null>(null)
   const regionResults = ref<RegionOCRResult[]>([])
-  const detectedScreenType = ref<ScreenType | null>(null)
+  const detectedScreenType = ref<DetectedScreenType | null>(null)
+
+  /**
+   * Tracks the last successfully identified screen type.
+   * Passed as a `prioritize` hint to detectScreenType() so the cascade
+   * short-circuits on the most-likely type first.
+   */
+  const lastSuccessfulScreenType = ref<ArtifactScreenType | null>(null)
 
   // Getters
   const isProcessing = computed(() => state.value === 'processing' || state.value === 'initializing')
@@ -103,8 +117,11 @@ export const useOCRStore = defineStore('ocr', () => {
   }
 
   /**
-   * Process image using region-based OCR
-   * More accurate and faster than full-image OCR
+   * Process image using the 4-stage pipeline:
+   *   Stage 1: screen type detection (independent of star position)
+   *   Stage 2: constrained star detection (within screen-type-specific bounds)
+   *   Stage 3a: OCR validation (slotName + mainStatName only — fast artifact identity check)
+   *   Stage 3b: Full OCR (remaining regions)
    */
   async function processImage(
     canvas: HTMLCanvasElement,
@@ -122,79 +139,102 @@ export const useOCRStore = defineStore('ocr', () => {
 
       const settingsStore = useSettingsStore()
 
-      // Determine screen type (auto-detect or use provided)
-      let resolvedScreenType: ScreenType
+      // ── Stage 1: Screen type detection ─────────────────────────────────────
+      let resolvedScreenType: ArtifactScreenType
       const configuredType = settingsStore.ocrSettings.regions.screenType
 
       if (configuredType === 'auto') {
         progressStatus.value = 'Detecting screen type...'
-        const starResult = detectStarsInFullScreen(canvas, canvas.height)
-        if (!starResult) {
+        const detected = detectScreenType(canvas, {
+          prioritize: lastSuccessfulScreenType.value ?? undefined,
+        })
+        if (detected === 'other') {
           state.value = 'error'
           error.value = 'No artifact detected on screen'
           processingTime.value = Date.now() - startTime
           return { artifact: {}, confidence: 0, rawText: '', errors: ['No artifact detected on screen'] } as OCRResult
         }
-        resolvedScreenType = detectScreenType(
-          canvas,
-          starResult.stars.position,
-          canvas.width,
-          canvas.height,
-        )
-        progress.value = 10
+        resolvedScreenType = detected
       } else {
-        resolvedScreenType = configuredType as ScreenType
+        resolvedScreenType = configuredType as ArtifactScreenType
       }
 
       detectedScreenType.value = resolvedScreenType
+      progress.value = 10
 
-      // Get layout template for screen type
+      // ── Stage 2: Constrained star detection ────────────────────────────────
       const layout = getRegionTemplate(resolvedScreenType)
       activeLayout.value = layout
-      progress.value = 20
       progressStatus.value = `Using ${resolvedScreenType} screen layout...`
+
+      const starResult = detectStarsInBounds(canvas, layout.starSearchBounds, canvas.height)
+      if (!starResult) {
+        state.value = 'error'
+        error.value = 'No artifact detected on screen'
+        processingTime.value = Date.now() - startTime
+        return { artifact: {}, confidence: 0, rawText: '', errors: ['No artifact detected on screen'] } as OCRResult
+      }
+
+      const anchorPx = { x: starResult.stars.position.x, y: starResult.stars.position.y }
+      progress.value = 20
 
       // Initialize OCR worker if needed
       const worker = getOCRWorker()
       if (!worker.initialized) {
         progressStatus.value = 'Initializing OCR engine...'
         await worker.initialize((p) => {
-          progress.value = 20 + Math.round(p.progress * 30) // 20-50%
+          progress.value = 20 + Math.round(p.progress * 20) // 20-40%
           progressStatus.value = p.status
         })
       }
 
+      // ── Stage 3a: OCR validation ────────────────────────────────────────────
+      progress.value = 40
+      progressStatus.value = 'Validating artifact identity...'
+
+      const validation = await validateArtifactIdentity(canvas, layout, anchorPx, {
+        debug: false,
+        debugPreprocessingOverrides,
+      })
+
+      if (!validation.isArtifact) {
+        state.value = 'error'
+        error.value = 'No artifact detected on screen'
+        processingTime.value = Date.now() - startTime
+        return { artifact: {}, confidence: 0, rawText: '', errors: ['No artifact detected on screen'] } as OCRResult
+      }
+
+      // ── Stage 3b: Full OCR (skip already-processed regions) ────────────────
       progress.value = 50
       progressStatus.value = 'Processing regions...'
 
-      const regionResult = await recognizeRegions(
-        canvas,
-        layout,
-        {
-          parallelProcessing: settingsStore.ocrSettings.regions.parallelProcessing,
-          skipOptional: false,
-          debug: false,
-          debugPreprocessingOverrides,
-        },
-      )
+      const regionResult = await recognizeRegions(canvas, layout, {
+        parallelProcessing: settingsStore.ocrSettings.regions.parallelProcessing,
+        skipOptional: false,
+        debug: false,
+        debugPreprocessingOverrides,
+        anchorOverride: anchorPx,
+        skipRegions: new Set(['slotName', 'mainStatName']),
+        precomputedResults: [validation.slotResult, validation.mainStatNameResult],
+      })
 
-      if (regionResult.starDetection) {
-        detectedAnchorPx.value = { x: regionResult.starDetection.position.x, y: regionResult.starDetection.position.y }
-        // Update overlay positions to match the layout actually used
-        detectedRegionPositions.value = calculateAllRegionPositions(
-          layout,
-          canvas.width,
-          canvas.height,
-          detectedAnchorPx.value,
-        )
-      }
+      // ── Update state ────────────────────────────────────────────────────────
+      lastSuccessfulScreenType.value = resolvedScreenType
+      detectedAnchorPx.value = anchorPx
+      detectedRarityBounds.value = starResult.regionBounds
+      detectedRegionPositions.value = calculateAllRegionPositions(
+        layout,
+        canvas.width,
+        canvas.height,
+        anchorPx,
+      )
       regionResults.value = regionResult.regions
 
       progress.value = 85
       progressStatus.value = 'Parsing artifact data...'
 
       // Parse artifact from region results, passing star count for rarity
-      const parseResult = parseArtifactFromRegions(regionResult.regions, regionResult.starDetection?.count)
+      const parseResult = parseArtifactFromRegions(regionResult.regions, starResult.stars.count)
 
       // Add region-specific metadata
       parseResult.regionBased = true
@@ -246,9 +286,8 @@ export const useOCRStore = defineStore('ocr', () => {
   }
 
   /**
-   * Run star detection on the provided canvas and update detectedRarityBounds
-   * and detectedRegionPositions for all OCR regions.
-   * Logs detection attempt and result to console.
+   * Run the 2-stage detection (screen type → constrained stars) and update the visual overlay.
+   * Does NOT run OCR. Synchronous apart from zero async calls.
    */
   function detectArtifactDescription(canvas: HTMLCanvasElement): void {
     const settingsStore = useSettingsStore()
@@ -257,7 +296,32 @@ export const useOCRStore = defineStore('ocr', () => {
       height: canvas.height,
     })
 
-    const detection = detectStarsInFullScreen(canvas, canvas.height)
+    // Stage 1: screen type detection
+    let screenType: ArtifactScreenType
+    const configuredType = settingsStore.ocrSettings.regions.screenType
+
+    if (configuredType === 'auto') {
+      const detected = detectScreenType(canvas, {
+        prioritize: lastSuccessfulScreenType.value ?? undefined,
+      })
+      if (detected === 'other') {
+        console.log('[Star Detection] Screen type: other — no artifact panel detected')
+        state.value = 'error'
+        error.value = 'No artifact panel detected on screen'
+        detectedRarityBounds.value = null
+        detectedRegionPositions.value = null
+        return
+      }
+      screenType = detected
+    } else {
+      screenType = configuredType as ArtifactScreenType
+    }
+
+    detectedScreenType.value = screenType
+    const layout = getRegionTemplate(screenType)
+
+    // Stage 2: constrained star detection
+    const detection = detectStarsInBounds(canvas, layout.starSearchBounds, canvas.height)
 
     if (detection) {
       console.log('[Star Detection] Stars detected:', {
@@ -267,13 +331,6 @@ export const useOCRStore = defineStore('ocr', () => {
       })
       console.log('[Star Detection] Star region bounds (px):', detection.regionBounds)
 
-      const screenType: ScreenType = settingsStore.ocrSettings.regions.screenType === 'auto'
-        ? detectScreenType(canvas, detection.stars.position, canvas.width, canvas.height)
-        : settingsStore.ocrSettings.regions.screenType as ScreenType
-      detectedScreenType.value = screenType
-      const layout = getRegionTemplate(screenType)
-
-      // Use detected first-star center as the canonical anchor point
       const anchorPx = { x: detection.stars.position.x, y: detection.stars.position.y }
       console.log('[Star Detection] Anchor point (px):', anchorPx)
       detectedAnchorPx.value = anchorPx

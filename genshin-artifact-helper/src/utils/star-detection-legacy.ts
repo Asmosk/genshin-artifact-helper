@@ -333,7 +333,9 @@ function detectStarsInImageData(
  * with the given center finder strategy.
  */
 export function makeLegacyDetector(centerFinder: StarCenterFinderFn): StarDetectorFn {
-  return (data, width, height, screenHeight, settings) =>
+  // bounds is accepted for interface compatibility but ignored — the legacy algorithm
+  // does not support constrained scanning (use projectionStarDetector for that)
+  return (data, width, height, screenHeight, settings, _bounds?) =>
     detectStarsInImageData(data, width, height, screenHeight, settings, centerFinder)
 }
 

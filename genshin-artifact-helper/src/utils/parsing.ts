@@ -414,7 +414,7 @@ export function parseArtifactFromRegions(
       : 0
 
   // Parse piece name (artifact set piece)
-  const pieceNameText = regions.get('pieceName')?.text.trim() || ''
+  const pieceNameText = regions.get('pieceName')?.text.replace(/\n+/g, ' ').trim() || ''
 
   // Parse slot name
   const slotText = regions.get('slotName')?.text || ''

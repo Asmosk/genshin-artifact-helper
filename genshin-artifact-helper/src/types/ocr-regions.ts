@@ -10,7 +10,12 @@ export type { PreprocessingOptions }
 /**
  * Game screen types where artifacts can be viewed
  */
-export type ScreenType = 'character' | 'inventory' | 'rewards'
+export type ArtifactScreenType = 'character' | 'inventory' | 'rewards'
+
+/**
+ * Result of screen type detection — includes 'other' for unrecognized screens
+ */
+export type DetectedScreenType = ArtifactScreenType | 'other'
 
 /**
  * OCR processing mode for a region
@@ -64,7 +69,7 @@ export interface OCRRegion {
  */
 export interface ArtifactRegionLayout {
   /** Screen type this layout is for */
-  screenType: ScreenType
+  screenType: ArtifactScreenType
 
   /** Human-readable description */
   description: string
@@ -100,6 +105,18 @@ export interface ArtifactRegionLayout {
 
   /** Whether this is a custom user-defined layout */
   custom?: boolean
+
+  /**
+   * Fractional bounding box (0–1) within which to constrain star detection.
+   * Excludes known false-positive columns (equipped artifact column in comparison mode,
+   * starred/favorited icon in inventory).
+   */
+  starSearchBounds: {
+    xMin: number
+    xMax: number
+    yMin: number
+    yMax: number
+  }
 }
 
 /**
@@ -171,6 +188,16 @@ export interface RegionOCROptions {
    * Useful in tests where the correct star location is already known from ground truth.
    */
   anchorOverride?: { x: number; y: number }
+
+  /**
+   * Region names to skip during OCR processing (their precomputed results are in precomputedResults).
+   */
+  skipRegions?: Set<string>
+
+  /**
+   * Pre-computed OCR results to merge into the final output (avoids re-running OCR on them).
+   */
+  precomputedResults?: RegionOCRResult[]
 }
 
 /**
@@ -181,7 +208,7 @@ export interface RegionBasedOCRResult {
   regions: RegionOCRResult[]
 
   /** Detected screen type */
-  screenType: ScreenType
+  screenType: ArtifactScreenType
 
   /** Layout used for processing */
   layout: ArtifactRegionLayout

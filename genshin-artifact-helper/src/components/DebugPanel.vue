@@ -2,7 +2,7 @@
 import { DEFAULT_PREPROCESSING } from '@/utils/ocr-region-templates'
 import { defaultStarDetectionSettings } from '@/utils/star-detection'
 import type { StarDetectionDebugData, StarDetectionSettings } from '@/utils/star-detection'
-import type { ArtifactRegionLayout, ScreenType, PreprocessingOptions } from '@/types/ocr-regions'
+import type { ArtifactRegionLayout, ArtifactScreenType, PreprocessingOptions } from '@/types/ocr-regions'
 import OCRRegionOffsetSetup from '@/components/OCRRegionOffsetSetup.vue'
 import { useSettingsStore } from '@/stores/settings'
 
@@ -19,7 +19,7 @@ defineProps<{
   debugPreprocessingEnabled: boolean
   debugPreprocessingOptions: PreprocessingOptions
   showRegionOffsetSetup: boolean
-  regionEditorScreenType: ScreenType
+  regionEditorScreenType: ArtifactScreenType
   regionEditorLayout: ArtifactRegionLayout | null
   hasImage: boolean
 }>()
@@ -35,7 +35,7 @@ const emit = defineEmits<{
   'update:regionEditorLayout': [value: ArtifactRegionLayout | null]
   toggleStarDetectionDebug: []
   toggleRegionOffsetSetup: []
-  'editor-screen-type-change': [type: ScreenType]
+  'editor-screen-type-change': [type: ArtifactScreenType]
   initRegionEditorLayout: []
 }>()
 </script>

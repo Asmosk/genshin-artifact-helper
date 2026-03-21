@@ -1,13 +1,16 @@
 /**
  * @vitest-environment node
  *
- * Stage 1: Star detection tests.
- * Runs detectStarsInFullScreen against every fixture and asserts:
- *   - Detected position is within ±10px of expected.starCoords
- *   - Detected star count matches expected.rarity
+ * Stage 2: Star detection tests.
+ * When the fixture has a known `screen` type ('character' | 'inventory' | 'rewards'),
+ * uses detectStarsInBounds with the layout's starSearchBounds — matching the production
+ * pipeline that performs constrained detection after screen type is known.
+ * Falls back to detectStarsInFullScreen for fixtures without a screen type.
  *
- * Uses known-good ground truth — does not depend on any other pipeline step.
- * Note: some recently-added edge-case fixtures may fail while star detection is being improved.
+ * Ground truth fields used:
+ *   expected.starCoords — expected { x, y } position of the first (leftmost) star
+ *   expected.rarity     — expected star count
+ *   expected.screen     — screen type used to select star search bounds
  */
 
 import { describe, it, expect, beforeAll } from 'vitest'
@@ -15,7 +18,9 @@ import { readdirSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 import { createCanvas, loadImage } from 'canvas'
-import { detectStarsInFullScreen } from '@/utils/star-detection'
+import { detectStarsInFullScreen, detectStarsInBounds } from '@/utils/star-detection'
+import { getRegionTemplate } from '@/utils/ocr-region-templates'
+import type { ArtifactScreenType } from '@/types/ocr-regions'
 
 // Polyfill browser APIs used by star detection internals
 ;(globalThis as any).document = {
@@ -28,11 +33,14 @@ import { detectStarsInFullScreen } from '@/utils/star-detection'
 interface FixtureExpected {
   starCoords?: { x: number; y: number }
   rarity?: number
+  screen?: string
 }
 
 interface FixtureGroundTruth {
   expected: FixtureExpected
 }
+
+const ARTIFACT_SCREEN_TYPES = new Set<string>(['character', 'inventory', 'rewards'])
 
 const fixturesDir = join(__dirname, 'fixtures', 'artifacts')
 
@@ -81,7 +89,12 @@ describe('Star Detection', () => {
     canvas.getContext('2d').drawImage(img as any, 0, 0)
     const htmlCanvas = canvas as unknown as HTMLCanvasElement
 
-    const detection = detectStarsInFullScreen(htmlCanvas, canvas.height)
+    // Use constrained detection when screen type is known, full-screen otherwise
+    const screenType = expected.screen
+    const detection =
+      screenType !== undefined && ARTIFACT_SCREEN_TYPES.has(screenType)
+        ? detectStarsInBounds(htmlCanvas, getRegionTemplate(screenType as ArtifactScreenType).starSearchBounds, canvas.height)
+        : detectStarsInFullScreen(htmlCanvas, canvas.height)
 
     expect(
       detection,

@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ArtifactRegionLayout, ScreenType } from '@/types/ocr-regions'
+import type { ArtifactRegionLayout, ArtifactScreenType } from '@/types/ocr-regions'
 
 const props = defineProps<{
   modelValue: ArtifactRegionLayout
-  screenType: ScreenType
+  screenType: ArtifactScreenType
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [layout: ArtifactRegionLayout]
-  'update:screenType': [type: ScreenType]
+  'update:screenType': [type: ArtifactScreenType]
   'reset': []
 }>()
 
-const SCREEN_TYPES: ScreenType[] = ['inventory', 'character', 'rewards']
+const SCREEN_TYPES: ArtifactScreenType[] = ['inventory', 'character', 'rewards']
 
 const anchor = computed(() => props.modelValue.anchorPoint ?? { x: 0, y: 0 })
 

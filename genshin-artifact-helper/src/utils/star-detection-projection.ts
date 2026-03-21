@@ -35,16 +35,23 @@ function detectRegions(
 
 /**
  * Compute star-colored pixel count per column (column histogram only).
+ * When `bounds` is provided (pixel coords), only the bounded region is scanned —
+ * columns outside the range have value 0 and are filtered out by detectRegions.
  */
 function computeColumnHistogramOnly(
   data: Uint8ClampedArray,
   width: number,
   height: number,
   settings: StarDetectionSettings,
+  bounds?: { xMin: number; xMax: number; yMin: number; yMax: number },
 ): number[] {
   const colHist = new Array<number>(width).fill(0)
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
+  const xStart = bounds?.xMin ?? 0
+  const xEnd = bounds?.xMax ?? width
+  const yStart = bounds?.yMin ?? 0
+  const yEnd = bounds?.yMax ?? height
+  for (let y = yStart; y < yEnd; y++) {
+    for (let x = xStart; x < xEnd; x++) {
       const idx = (y * width + x) * 4
       if (isStarColor(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, settings)) {
         colHist[x] = (colHist[x] ?? 0) + 1
@@ -174,8 +181,9 @@ function projectionStarDetectorImpl(
   height: number,
   screenHeight: number,
   settings: StarDetectionSettings,
+  bounds?: { xMin: number; xMax: number; yMin: number; yMax: number },
 ): { center: { x: number; y: number }; count: number } | null {
-  return debugProjectionDetect(data, width, height, screenHeight, settings).result
+  return debugProjectionDetect(data, width, height, screenHeight, settings, bounds).result
 }
 
 /** Projection-based (column/row histogram) star detector */
@@ -192,6 +200,7 @@ export function debugProjectionDetect(
   height: number,
   screenHeight: number,
   settings: StarDetectionSettings,
+  bounds?: { xMin: number; xMax: number; yMin: number; yMax: number },
 ): {
   result: { center: { x: number; y: number }; count: number } | null
   colHist: number[]
@@ -207,7 +216,7 @@ export function debugProjectionDetect(
   const rowMinH = Math.round(screenHeight * settings.projRowMinPercent)
   const rowMaxH = Math.round(screenHeight * settings.projRowMaxPercent)
 
-  const colHist = computeColumnHistogramOnly(data, width, height, settings)
+  const colHist = computeColumnHistogramOnly(data, width, height, settings, bounds)
   const colRegions = detectRegions(colHist, settings.projColMinPixels)
     .filter(r => {
       const w = r.end - r.start + 1
