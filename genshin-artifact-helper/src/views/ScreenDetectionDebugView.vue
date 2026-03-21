@@ -17,12 +17,12 @@ interface ColorEntry {
 const REGIONS = [
   {
     id: 'char-strip',
-    label: 'Character: GOLDEN→LTGRAY→CREAM sequence',
-    sublabel: '70–96% X, 1–11% Y',
+    label: 'Character: ≥3 wide color regions (GOLDEN/LTGRAY/CREAM histogram)',
+    sublabel: '70–100% X, 2–10% Y',
     xMin: 70,
-    yMin: 1,
-    xMax: 96,
-    yMax: 11,
+    yMin: 2,
+    xMax: 100,
+    yMax: 10,
     color: '#dbba7d',
     group: 'character',
   },
@@ -116,6 +116,7 @@ async function loadFixtures() {
 }
 
 function selectFixture(name: string) {
+  if (name === selectedName.value) return
   selectedName.value = name
   imgLoaded.value = false
   hoveredRegion.value = null

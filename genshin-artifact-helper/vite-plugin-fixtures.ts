@@ -51,7 +51,12 @@ export function fixturesPlugin(): Plugin {
               }
             }),
           )
-          sendJson(res, 200, fixtures.sort((a, b) => a.name.localeCompare(b.name)))
+          const SCREEN_ORDER: Record<string, number> = { character: 0, inventory: 1, rewards: 2 }
+          sendJson(res, 200, fixtures.sort((a, b) => {
+            const sa = SCREEN_ORDER[a.screen ?? ''] ?? 3
+            const sb = SCREEN_ORDER[b.screen ?? ''] ?? 3
+            return sa !== sb ? sa - sb : a.name.localeCompare(b.name)
+          }))
         } catch (err) {
           console.error('[fixtures] list error:', err)
           sendJson(res, 500, { error: String(err) })
@@ -79,6 +84,31 @@ export function fixturesPlugin(): Plugin {
           })
           .catch((err) => {
             console.error('[fixture-save] error:', err)
+            sendJson(res, 500, { error: String(err) })
+          })
+      })
+
+      // POST /api/fixture-save-ocr — body: { name: string, ocrRegions: Record<string, {x,y,width,height}> }
+      server.middlewares.use('/api/fixture-save-ocr', (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        readBody(req)
+          .then((bodyStr) => {
+            const { name, ocrRegions } = JSON.parse(bodyStr) as {
+              name: string
+              ocrRegions: Record<string, { x: number; y: number; width: number; height: number }>
+            }
+            const filePath = path.join(fixturesDir, `${name}.json`)
+            return fs
+              .readFile(filePath, 'utf-8')
+              .then((raw) => {
+                const data = JSON.parse(stripBom(raw)) as { expected: Record<string, unknown> }
+                data.expected['ocrRegions'] = ocrRegions
+                return fs.writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+              })
+              .then(() => sendJson(res, 200, { ok: true }))
+          })
+          .catch((err) => {
+            console.error('[fixture-save-ocr] error:', err)
             sendJson(res, 500, { error: String(err) })
           })
       })
