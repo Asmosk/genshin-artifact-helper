@@ -27,7 +27,7 @@ export {
   legacyStarDetector,
 } from '@/utils/star-detection-legacy'
 
-export { projectionStarDetector } from '@/utils/star-detection-projection'
+export { projectionStarDetector, debugProjectionDetect } from '@/utils/star-detection-projection'
 
 export { debugDetectStars } from '@/utils/star-detection-debug'
 
@@ -72,6 +72,11 @@ export function detectStarsInBounds(
   const imageData = ctx.getImageData(0, 0, width, height)
   const data = imageData.data
 
+  // Genshin's UI scales with effectiveHeight — the height of the largest 16:9
+  // viewport that fits in the image. This normalises 4:3 (and other) aspect ratios
+  // so that percentage-based thresholds stay accurate regardless of window shape.
+  const effectiveHeight = Math.min(height, width / (16 / 9))
+
   // Convert fractional bounds to pixel bounds
   const pixelBounds = {
     xMin: Math.round(bounds.xMin * width),
@@ -80,11 +85,11 @@ export function detectStarsInBounds(
     yMax: Math.round(bounds.yMax * height),
   }
 
-  const detection = detector(data, width, height, screenHeight, settings, pixelBounds)
+  const detection = detector(data, width, height, effectiveHeight, settings, pixelBounds)
   if (!detection) return null
 
-  const starSize = Math.round(screenHeight * settings.starSizePercent)
-  const starDistance = Math.round(screenHeight * settings.starDistancePercent)
+  const starSize = Math.round(effectiveHeight * settings.starSizePercent)
+  const starDistance = Math.round(effectiveHeight * settings.starDistancePercent)
   const numStars = Math.max(1, Math.min(5, detection.count)) as 1 | 2 | 3 | 4 | 5
 
   const regionWidth = (numStars - 1) * starDistance + starSize * 2
@@ -126,11 +131,13 @@ export function detectStarsInFullScreen(
   const imageData = ctx.getImageData(0, 0, width, height)
   const data = imageData.data
 
-  const detection = detector(data, width, height, screenHeight, settings)
+  const effectiveHeight = Math.min(height, width / (16 / 9))
+
+  const detection = detector(data, width, height, effectiveHeight, settings)
   if (!detection) return null
 
-  const starSize = Math.round(screenHeight * settings.starSizePercent)
-  const starDistance = Math.round(screenHeight * settings.starDistancePercent)
+  const starSize = Math.round(effectiveHeight * settings.starSizePercent)
+  const starDistance = Math.round(effectiveHeight * settings.starDistancePercent)
   const numStars = Math.max(1, Math.min(5, detection.count)) as 1 | 2 | 3 | 4 | 5
 
   // Calculate the rarity region bounds based on the detected stars
