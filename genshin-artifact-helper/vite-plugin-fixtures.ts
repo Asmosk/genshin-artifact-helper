@@ -45,7 +45,7 @@ export function fixturesPlugin(): Plugin {
               try {
                 const raw = await fs.readFile(path.join(fixturesDir, f), 'utf-8')
                 const data = JSON.parse(stripBom(raw))
-                return { name, hasStarCoords: !!data.expected?.starCoords }
+                return { name, hasStarCoords: !!data.expected?.starCoords, screen: data.expected?.screen as string | undefined }
               } catch {
                 return { name, hasStarCoords: false }
               }
