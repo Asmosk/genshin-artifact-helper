@@ -8,6 +8,9 @@ import OCRRegionPreviews from '@/components/OCRRegionPreviews.vue'
 import ScreenCaptureControls from '@/components/ScreenCaptureControls.vue'
 import ManualUploadControls from '@/components/ManualUploadControls.vue'
 import DebugPanel from '@/components/DebugPanel.vue'
+import ArtifactScoreCard from '@/components/ArtifactScoreCard.vue'
+import BuildProfileSelector from '@/components/BuildProfileSelector.vue'
+import { useArtifactStore } from '@/stores/artifact'
 import { useCaptureActions } from '@/composables/useCaptureActions'
 import { useOCRDispatch } from '@/composables/useOCRDispatch'
 import { useDebugPanel } from '@/composables/useDebugPanel'
@@ -17,6 +20,7 @@ const captureStore = useCaptureStore()
 const settingsStore = useSettingsStore()
 const ocrStore = useOCRStore()
 
+const artifactStore = useArtifactStore()
 const captureActions = useCaptureActions()
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
 
@@ -217,16 +221,18 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
       <div v-if="ocrStore.hasResult || ocrStore.hasError" class="flex flex-col overflow-y-auto">
         <OCRResults />
       </div>
+
+      <!-- Score Panel -->
+      <div v-if="artifactStore.hasArtifact" class="flex flex-col gap-3 overflow-y-auto">
+        <BuildProfileSelector />
+        <ArtifactScoreCard />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .content {
-  grid-template-columns: 300px 1fr 400px;
-}
-
-.content:not(:has(.ocr-panel > *)) {
   grid-template-columns: 300px 1fr;
 }
 </style>

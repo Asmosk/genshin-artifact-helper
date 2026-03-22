@@ -20,6 +20,7 @@ import { getRegionTemplate, calculateAllRegionPositions } from '@/utils/ocr-regi
 import { detectStarsInBounds } from '@/utils/star-detection'
 import { detectScreenType } from '@/utils/screen-type-detection'
 import { useSettingsStore } from './settings'
+import { useArtifactStore } from './artifact'
 
 /**
  * OCR processing state
@@ -271,10 +272,24 @@ export const useOCRStore = defineStore('ocr', () => {
       throw new Error('No OCR result to accept')
     }
 
-    // TODO: Save to artifact store
-    // This will be implemented when we have the artifact store integration
-    console.log('Accepting OCR result:', result.value.artifact)
+    const partial = result.value.artifact
+    const rarity = partial.rarity ?? 5
+    const maxLevel = rarity === 5 ? 20 : rarity === 4 ? 16 : rarity === 3 ? 12 : 4
 
+    const artifact = {
+      id: crypto.randomUUID(),
+      set: partial.set ?? 'Unknown',
+      slot: partial.slot ?? 'Flower',
+      rarity,
+      level: partial.level ?? 0,
+      maxLevel: partial.maxLevel ?? maxLevel,
+      mainStat: partial.mainStat ?? { type: 'HP' as const, value: 0 },
+      substats: partial.substats ?? [],
+      ...(partial.pieceName !== undefined && { pieceName: partial.pieceName }),
+    }
+
+    const artifactStore = useArtifactStore()
+    artifactStore.setArtifact(artifact)
     clearResult()
   }
 
