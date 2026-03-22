@@ -9,9 +9,9 @@ const artifactStore = useArtifactStore()
 const artifact = computed(() => artifactStore.currentArtifact)
 const score = computed(() => artifactStore.artifactScore)
 const grade = computed(() => artifactStore.scoreGrade)
-const percentage = computed(() => artifactStore.scorePercentage)
 
 const gradeColor = computed(() => getScoreColor(score.value?.totalScore ?? 0))
+
 
 function getStatColor(type: SubstatType | string): string {
   if (type.includes('CRIT')) return '#f472b6'
@@ -36,15 +36,45 @@ function formatStatValue(type: string, value: number): string {
     <!-- Grade + Score header -->
     <div class="flex items-center gap-6 pb-5 border-b border-slate-700">
       <div
-        class="text-6xl font-black w-20 h-20 flex items-center justify-center rounded-xl shrink-0"
-        :style="{ color: gradeColor, backgroundColor: gradeColor + '22', border: `2px solid ${gradeColor}` }"
+        class="relative w-20 h-20 flex items-center justify-center rounded-xl shrink-0 overflow-hidden"
+        :style="{ backgroundColor: gradeColor + '22', border: `2px solid ${gradeColor}` }"
       >
-        {{ grade }}
+        <!-- '?' pattern background, only for potential artifacts -->
+        <div
+          v-if="score.isPotential"
+          class="absolute select-none pointer-events-none flex flex-col"
+          :style="{ color: gradeColor, opacity: 0.18, fontSize: '28px', fontWeight: 900, lineHeight: '36px', letterSpacing: '2px', transform: 'rotate(-30deg)', width: '260%', left: '-80%', top: '-20%' }"
+        >
+          <span v-for="row in 6" :key="row" class="whitespace-nowrap">? ? ? ? ? ? ?</span>
+        </div>
+        <!-- Grade letter -->
+        <span
+          class="relative text-6xl font-black leading-none pb-1"
+          :style="{ color: gradeColor }"
+        >{{ grade }}</span>
       </div>
       <div class="flex flex-col gap-1">
-        <div class="text-3xl font-bold" :style="{ color: gradeColor }">{{ percentage }}%</div>
+        <!-- Score row -->
+        <div class="flex items-end gap-4 tabular-nums">
+          <div v-if="score.isPotential" class="flex flex-col">
+            <span class="text-xs text-slate-500 mb-0.5">min</span>
+            <span class="text-xl font-semibold text-slate-400">{{ Math.round(score.minScore) }}%</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-xs text-slate-500 mb-0.5">{{ score.isPotential ? 'max' : 'Max level' }}</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-3xl font-bold" :style="{ color: gradeColor }">{{ Math.round(score.totalScore) }}%</span>
+              <span v-if="score.isPotential" class="group relative inline-flex items-center">
+                <span class="cursor-help text-[10px] font-bold text-slate-900 bg-slate-500 rounded-full w-3.5 h-3.5 inline-flex items-center justify-center leading-none hover:bg-slate-400 transition-colors">?</span>
+                <span class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-xs text-slate-300 font-normal opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg z-10">
+                  At the maximum level this artifact will have a score between {{ Math.round(score.minScore) }}% and {{ Math.round(score.totalScore) }}%, depending on your luck.
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
         <div class="text-sm text-slate-400">
-          {{ score.isPotential ? `${score.remainingRolls} roll${score.remainingRolls !== 1 ? 's' : ''} remaining` : 'Max level' }}
+          {{ score.isPotential ? `${score.remainingRolls} roll${score.remainingRolls !== 1 ? 's' : ''} remaining` : '' }}
         </div>
         <div class="text-xs text-slate-500">{{ score.profile.name }}</div>
       </div>

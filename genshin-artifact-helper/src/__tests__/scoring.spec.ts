@@ -146,6 +146,60 @@ describe('calculateArtifactScore - SKILL.md Example #2 (level 8, potential score
   })
 })
 
+describe('calculateArtifactScore - minScore', () => {
+  it('minScore equals current score when remaining rolls go to a 0-weight substat', () => {
+    // Example #2 artifact: ATK has weight=0 in critDefProfile, so min rolls go there
+    // Min rolls add 0 to weighted sum → minScore = current (unleveled) score
+    // Existing: CRIT DMG=7.8 (16.7%), CRIT Rate=3.5 (15.0%), DEF%=6.6 (15.1%), ATK=33 (0%)
+    // weightedSum = 46.8, maxAchievable = 1.333 → ~35.1%
+    const artifact = makeArtifact({
+      level: 8,
+      substats: [
+        { type: 'CRIT DMG', value: 7.8 },
+        { type: 'ATK', value: 33 },
+        { type: 'CRIT Rate', value: 3.5 },
+        { type: 'DEF%', value: 6.6 },
+      ],
+    })
+    const result = calculateArtifactScore(artifact, critDefProfile)
+    expect(result.isPotential).toBe(true)
+    expect(result.minScore).toBeCloseTo(35.1, 0)
+  })
+
+  it('minScore < totalScore for potential artifact when all substats have equal weight', () => {
+    // All substats have equal weight: min rolls go to first-encountered lowest-weight (tie → first)
+    // but min roll < max roll so minScore < totalScore
+    const artifact = makeArtifact({
+      level: 8,
+      substats: [
+        { type: 'CRIT Rate', value: 3.5 },
+        { type: 'CRIT DMG', value: 7.8 },
+        { type: 'ATK%', value: 5.25 },
+        { type: 'HP%', value: 5.25 },
+      ],
+    })
+    const equalProfile = { name: 'equal', weights: { 'CRIT Rate': 1, 'CRIT DMG': 1, 'ATK%': 1, 'HP%': 1 } }
+    const result = calculateArtifactScore(artifact, equalProfile)
+    expect(result.isPotential).toBe(true)
+    expect(result.minScore).toBeLessThan(result.totalScore)
+  })
+
+  it('minScore equals totalScore for a max-level artifact', () => {
+    const artifact = makeArtifact({
+      level: 20,
+      substats: [
+        { type: 'CRIT DMG', value: 14.8 },
+        { type: 'ATK', value: 33 },
+        { type: 'CRIT Rate', value: 3.5 },
+        { type: 'DEF%', value: 6.6 },
+      ],
+    })
+    const result = calculateArtifactScore(artifact, critDefProfile)
+    expect(result.isPotential).toBe(false)
+    expect(result.minScore).toBe(result.totalScore)
+  })
+})
+
 describe('getRemainingRolls', () => {
   it('returns 0 for level 20 (max)', () => {
     expect(getRemainingRolls(makeArtifact({ level: 20 }))).toBe(0)

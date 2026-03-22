@@ -9,7 +9,7 @@ import type {
   Substat,
   SubstatType,
 } from '@/types/artifact'
-import { MAX_SUBSTAT_VALUE, MAX_SUBSTAT_ROLL, DEFAULT_BUILD_PROFILE } from '@/types/artifact'
+import { MAX_SUBSTAT_VALUE, MAX_SUBSTAT_ROLL, MIN_SUBSTAT_ROLL, DEFAULT_BUILD_PROFILE } from '@/types/artifact'
 
 // Re-export DEFAULT_BUILD_PROFILE for convenience
 export { DEFAULT_BUILD_PROFILE }
@@ -105,6 +105,9 @@ export function calculateArtifactScore(
     }
   })
 
+  // Snapshot original scores for min calculation (before max-potential mutation)
+  const minSubstatScores = substatScores.map((s) => ({ ...s }))
+
   // If artifact is not max level, calculate potential by adding remaining rolls
   // to the highest weighted substat present on the artifact
   if (isPotential && remainingRolls > 0) {
@@ -124,6 +127,28 @@ export function calculateArtifactScore(
       highestWeightedSubstat.score =
         (potentialValue / MAX_SUBSTAT_VALUE[highestWeightedSubstat.type]) * 100
     }
+  }
+
+  // Calculate min score: simulate remaining rolls on the lowest-weight substat at min roll value
+  let minWeightedScoreSum: number
+  if (isPotential && remainingRolls > 0) {
+    const lowestWeightedSubstat = minSubstatScores.reduce((prev, current) => {
+      return current.weight < prev.weight ? current : prev
+    })
+    const minRollValue = MIN_SUBSTAT_ROLL[lowestWeightedSubstat.type]
+    const minPotentialValue = lowestWeightedSubstat.value + minRollValue * remainingRolls
+    lowestWeightedSubstat.value = minPotentialValue
+    lowestWeightedSubstat.score =
+      (minPotentialValue / MAX_SUBSTAT_VALUE[lowestWeightedSubstat.type]) * 100
+    minWeightedScoreSum = minSubstatScores.reduce(
+      (sum, substat) => sum + substat.score * substat.weight,
+      0,
+    )
+  } else {
+    minWeightedScoreSum = substatScores.reduce(
+      (sum, substat) => sum + substat.score * substat.weight,
+      0,
+    )
   }
 
   // Calculate total score using the new formula:
@@ -146,6 +171,7 @@ export function calculateArtifactScore(
   if (sortedProfileWeights.length === 0) {
     return {
       totalScore: 0,
+      minScore: 0,
       substatScores,
       remainingRolls,
       isPotential,
@@ -160,9 +186,11 @@ export function calculateArtifactScore(
   // weightedScoreSum is in 0-100 range (scores are percentages), maxAchievable is in 0-1.5 range,
   // so dividing gives a result already in 0-100 percentage range
   const totalScore = weightedScoreSum / maxAchievable
+  const minScore = minWeightedScoreSum / maxAchievable
 
   return {
     totalScore: Math.min(100, Math.max(0, totalScore)),
+    minScore: Math.min(100, Math.max(0, minScore)),
     substatScores,
     remainingRolls,
     isPotential,

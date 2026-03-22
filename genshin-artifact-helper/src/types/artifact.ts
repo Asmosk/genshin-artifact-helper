@@ -184,6 +184,22 @@ export const SUBSTAT_ROLLS_4STAR: Record<SubstatType, number[]> = {
 }
 
 /**
+ * Minimum roll value for each substat (lowest possible single roll)
+ */
+export const MIN_SUBSTAT_ROLL: Record<SubstatType, number> = {
+  'CRIT Rate': 2.72,
+  'CRIT DMG': 5.44,
+  'ATK%': 4.08,
+  ATK: 13.62,
+  'HP%': 4.08,
+  HP: 209.13,
+  'DEF%': 5.1,
+  DEF: 16.2,
+  'Elemental Mastery': 16.32,
+  'Energy Recharge': 4.53,
+}
+
+/**
  * Maximum roll value for each substat
  */
 export const MAX_SUBSTAT_ROLL: Record<SubstatType, number> = {
@@ -434,8 +450,10 @@ export const COMMON_BUILD_PROFILES: BuildProfile[] = [
  * Artifact score result
  */
 export interface ArtifactScore {
-  /** Overall score percentage (0-100) */
+  /** Overall score percentage (0-100), assuming max rolls on best substat */
   totalScore: number
+  /** Minimum possible score (0-100), assuming min rolls on worst substat */
+  minScore: number
   /** Individual substat scores */
   substatScores: Array<{
     type: SubstatType
