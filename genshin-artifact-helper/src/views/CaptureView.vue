@@ -4,7 +4,8 @@ import { useCaptureStore } from '@/stores/capture'
 import { useOCRStore } from '@/stores/ocr'
 import { useArtifactStore } from '@/stores/artifact'
 import ArtifactScoreCard from '@/components/ArtifactScoreCard.vue'
-import BuildProfileSelector from '@/components/BuildProfileSelector.vue'
+import CollapsiblePanel from '@/components/CollapsiblePanel.vue'
+import ScoringOptionsPanel from '@/components/ScoringOptionsPanel.vue'
 import { useCaptureActions } from '@/composables/useCaptureActions'
 import { useOCRDispatch } from '@/composables/useOCRDispatch'
 import { useAutoPipeline } from '@/composables/useAutoPipeline'
@@ -72,6 +73,7 @@ async function handleFileUpload(event: Event) {
   if (!file) return
   try {
     await captureStore.uploadImage(file)
+    void ocrDispatch.sendToOCR()
   } catch (err) {
     console.error('Failed to upload image:', err)
   }
@@ -85,20 +87,31 @@ async function handleFileUpload(event: Event) {
     <!-- Header -->
     <div class="flex justify-between items-center px-6 py-4 border-b border-dark-700 shrink-0">
       <h1 class="m-0 text-xl font-semibold">Artifact Scanner</h1>
-      <BuildProfileSelector />
     </div>
 
-    <!-- Main: centered score card or empty state -->
-    <div class="flex-1 flex items-center justify-center p-6 overflow-y-auto">
-      <ArtifactScoreCard v-if="artifactStore.hasArtifact" class="w-full max-w-lg" />
-      <div v-else class="flex flex-col items-center gap-3 text-center text-slate-500">
-        <div class="text-6xl opacity-20">⚔</div>
-        <p class="m-0 text-lg">Capture an artifact to see its score</p>
-        <p class="m-0 text-sm">Start screen capture or upload a screenshot below</p>
-        <p v-if="noArtifactDetected" class="m-0 text-sm text-amber-400/80">
-          No artifact details found in the current image
-        </p>
+    <!-- Main: score card + right panel column -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- Center: score card or empty state -->
+      <div class="flex-1 flex items-center justify-center p-6 overflow-y-auto">
+        <ArtifactScoreCard v-if="artifactStore.hasArtifact" class="w-full max-w-lg" />
+        <div v-else class="flex flex-col items-center gap-3 text-center text-slate-500">
+          <div class="text-6xl opacity-20">⚔</div>
+          <p class="m-0 text-lg">Capture an artifact to see its score</p>
+          <p class="m-0 text-sm">Start screen capture or upload a screenshot below</p>
+          <p v-if="noArtifactDetected" class="m-0 text-sm text-amber-400/80">
+            No artifact details found in the current image
+          </p>
+        </div>
       </div>
+
+      <!-- Right column: collapsible panels -->
+      <div class="w-72 shrink-0 flex flex-col gap-2 p-3 overflow-y-auto border-l border-dark-700">
+        <CollapsiblePanel title="Scoring Options" storage-key="panel-scoring-options">
+          <ScoringOptionsPanel />
+        </CollapsiblePanel>
+      </div>
+
     </div>
 
     <!-- Bottom dock -->
@@ -193,14 +206,6 @@ async function handleFileUpload(event: Event) {
         </button>
 
         <button class="btn btn-secondary" @click="triggerFileUpload">Upload Image</button>
-
-        <button
-          class="btn btn-secondary"
-          :disabled="!captureActions.hasImage.value || ocrStore.isProcessing"
-          @click="ocrDispatch.sendToOCR"
-        >
-          {{ ocrStore.isProcessing ? 'Processing…' : 'Process with OCR' }}
-        </button>
 
         <input
           ref="fileInputRef"

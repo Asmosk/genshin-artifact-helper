@@ -105,8 +105,6 @@ export const useOCRStore = defineStore('ocr', () => {
     detectedRegionPositions.value = null
     detectedAnchorPx.value = null
     regionResults.value = []
-    detectedScreenType.value = null
-    detectedStarCount.value = null
   }
 
   /**
@@ -137,6 +135,8 @@ export const useOCRStore = defineStore('ocr', () => {
       error.value = null
       result.value = null
       activeLayout.value = null
+      detectedScreenType.value = null
+      detectedStarCount.value = null
       progress.value = 0
       progressStatus.value = 'Initializing region-based OCR...'
 
@@ -178,6 +178,7 @@ export const useOCRStore = defineStore('ocr', () => {
         return { artifact: {}, confidence: 0, rawText: '', errors: ['No artifact detected on screen'] } as OCRResult
       }
 
+      detectedStarCount.value = starResult.stars.count
       const anchorPx = { x: starResult.stars.position.x, y: starResult.stars.position.y }
       progress.value = 20
 
