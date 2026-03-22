@@ -1,54 +1,76 @@
-# genshin-artifact-helper
+# Genshin Artifact Helper
 
-This template should help get you started developing with Vue 3 in Vite.
+Browser-based tool for scoring Genshin Impact artifacts in live mode. Runs locally in your browser, scans a captured game window for artifact details, and scores them based on potential.
 
-## Recommended IDE Setup
+## Current status
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+In active development, not ready for general use. Currently works as a vertical slice to test the core functionality.
 
-## Recommended Browser Setup
+## Features
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- **Live capture** [works] - shares your game window with the browser and scans artifacts automatically
+- **OCR** [mostly works] - reads artifact name, set, main stat, and all four substats using Tesseract.js, entirely in-browser
+- **Build profiles** [basic functionality] - configure which substats matter for each character/build and their weights
+- **Scoring** [works] - scores each artifact against the active build profile, showing roll efficiency and potential
+- **Continuous mode** [mostly works] - auto-scans at a set interval for hands-free artifact farming
+- **Inventory** [planned] - keeps a log of all scanned artifacts in the session, helps compare artifacts and make better decisions on what to keep and what to feed to the strongbox 
 
-## Type Support for `.vue` Imports in TS
+## Getting Started
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+### Prerequisites
 
-## Customize configuration
+- A modern desktop browser with screen capture support (Firefox, Chrome, Edge, Brave).
 
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+### Install and run
 
 ```sh
 bun install
+bun run dev
 ```
 
-### Compile and Hot-Reload for Development
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-```sh
-bun dev
-```
-
-### Type-Check, Compile and Minify for Production
+### Build for production
 
 ```sh
 bun run build
+bun run preview   # preview the built output
 ```
 
-### Run Unit Tests with [Vitest](https://vitest.dev/)
+## Usage
 
-```sh
-bun test:unit
+1. Open the app in your browser
+2. Click **Start Capture** and select your Genshin Impact game window
+3. Navigate to an artifact in your inventory, character screen or on domain reward screen - the app will scan and score it automatically
+4. Adjust build profiles in **Settings** to match the character you're farming for
+
+## How it works
+
+```
+Screen capture > Image preprocessing > Screen Detection > Artifact Detection > OCR > Parsing > Scoring
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+- **Capture** - uses the browser `getDisplayMedia` API to share the game window
+- **OCR** - runs Tesseract.js in parallel across multiple artifact screen regions
 
-```sh
-bun lint
-```
+## Tech stack
+
+- TypeScript
+- [Vue 3](https://vuejs.org/), [Pinia](https://pinia.vuejs.org/), [Vitest](https://vitest.dev/)
+- [Tailwind CSS 4](https://tailwindcss.com/)
+- [Tesseract.js](https://tesseract.projectnaptha.com/)
+
+## Acknowledgements
+
+This project was inspired by the excellent work of the Genshin Impact community, especially:
+
+- [Genshin Optimizer](https://github.com/frzyc/genshin-optimizer)
+- [Inventory Kamera](https://github.com/Andrewthe13th/Inventory_Kamera)
+
+## License
+
+MIT - see [LICENSE](LICENSE).
+
+This project is not affiliated with, endorsed by, or in any way connected to HoYoverse or the Genshin Impact team. Genshin Impact is a trademark of HoYoverse.
+
+This project makes use of several third-party open source libraries. See `package.json` for the full list of dependencies and their respective licenses.
