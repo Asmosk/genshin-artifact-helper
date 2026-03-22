@@ -62,12 +62,7 @@ describe('detectScreenType', () => {
     }
   })
 
-  it('should have fixture images', () => {
-    if (imageFiles.length === 0) {
-      console.warn(
-        '⚠️  No fixture images found at root level, skipping screen-type detection tests',
-      )
-    }
+  it.skipIf(imageFiles.length === 0)('should have fixture images', () => {
     expect(imageFiles.length).toBeGreaterThan(0)
   })
 

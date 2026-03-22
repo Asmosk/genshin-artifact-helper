@@ -35,11 +35,8 @@ coverage
 # Vitest
 __screenshots__/
 
-# Generated
-src/generated/
-
 # Vite
 *.timestamp-*-*.mjs
 
-# Test fixture source files
-/src/__tests__/fixtures/artifacts/source files/
+# Test fixtures
+/src/__tests__/fixtures/

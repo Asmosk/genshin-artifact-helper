@@ -1,7 +1,9 @@
 {
   "name": "genshin-artifact-helper",
-  "version": "0.0.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "Genshin Impact artifact scanner and scorer — captures game window using browser API, reads artifact details via OCR, and scores against customizable build profiles",
+  "author": "Asmosk",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
