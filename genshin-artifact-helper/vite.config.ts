@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { fixturesPlugin } from './vite-plugin-fixtures'
 import { rollTablesPlugin } from './vite-plugin-roll-tables'
@@ -10,6 +11,7 @@ import { rollTablesPlugin } from './vite-plugin-roll-tables'
 export default defineConfig({
   plugins: [
     vue(),
+    tailwindcss(),
     vueDevTools(),
     fixturesPlugin(),
     rollTablesPlugin(),
