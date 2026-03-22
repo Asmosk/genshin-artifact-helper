@@ -442,6 +442,7 @@ export interface ArtifactScore {
     value: number
     score: number // 0-100
     weight: number
+    rollCount: number
   }>
   /** Number of remaining rolls if not max level */
   remainingRolls: number

@@ -63,7 +63,13 @@ function formatStatValue(type: string, value: number): string {
         class="flex items-center gap-3 py-2 px-3 bg-slate-900 rounded-md"
         :class="{ 'opacity-40': sub.weight === 0 }"
       >
-        <span class="w-32 font-semibold text-sm shrink-0" :style="{ color: getStatColor(sub.type) }">
+        <span class="flex items-center gap-1.5 w-32 font-semibold text-sm shrink-0" :style="{ color: getStatColor(sub.type) }">
+          <span
+            class="inline-flex items-center justify-center w-4.5 h-4.5 rounded-full text-[10px] font-bold leading-none shrink-0"
+            :style="sub.weight > 0
+              ? { backgroundColor: '#b45309', color: '#fef3c7', border: '1px solid #f59e0b' }
+              : { backgroundColor: '#334155', color: '#94a3b8', border: '1px solid #475569' }"
+          >{{ sub.rollCount }}</span>
           {{ sub.type }}
         </span>
         <span class="w-16 text-right font-bold text-sm">

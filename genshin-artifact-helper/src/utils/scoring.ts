@@ -15,12 +15,6 @@ import { MAX_SUBSTAT_VALUE, MAX_SUBSTAT_ROLL, DEFAULT_BUILD_PROFILE } from '@/ty
 export { DEFAULT_BUILD_PROFILE }
 
 /**
- * Artifact combined substats constant
- * Total possible substat rolls (9) / total possible rolls in a single substat (6)
- */
-const SUBSTAT_CONSTANT = 1.5
-
-/**
  * Total possible substats in an artifact
  */
 const TOTAL_SUBSTATS = 4
@@ -30,6 +24,11 @@ const TOTAL_SUBSTATS = 4
  * Starting roll + 5 bonus rolls at levels 4, 8, 12, 16, 20
  */
 const MAX_ROLLS_5_STAR = 6
+
+/**
+ * Number of bonus rolls available (levels 4, 8, 12, 16, 20)
+ */
+const BONUS_ROLLS = 5
 
 
 /**
@@ -102,6 +101,7 @@ export function calculateArtifactScore(
       value,
       score,
       weight,
+      rollCount: substat.rollCount ?? 1,
     }
   })
 
@@ -126,17 +126,24 @@ export function calculateArtifactScore(
     }
   }
 
-  // Calculate total score
-  // Formula: sum(substat_score * substat_weight) / 1.5 / (sum(substat_weight) / 4)
+  // Calculate total score using the new formula:
+  // artifact_score = sum(weighted_score_i) / max_achievable
+  // where weighted_score_i = (value_i / (max_roll_i * 6)) * weight_i  (already computed as score*weight/100)
+  // and max_achievable = (sum_top_k_weights + 5 * w_max) / 6
+  // based on top k = min(valued stats in profile, 4) weights
   const weightedScoreSum = substatScores.reduce(
     (sum, substat) => sum + substat.score * substat.weight,
     0,
   )
 
-  const totalWeight = substatScores.reduce((sum, substat) => sum + substat.weight, 0)
+  // Compute max_achievable from the top min(N_profile_valued, 4) weights in the profile
+  const sortedProfileWeights = Object.values(profile.weights)
+    .filter((w): w is number => w !== undefined && w > 0)
+    .sort((a, b) => b - a)
+    .slice(0, TOTAL_SUBSTATS)
 
   // Avoid division by zero
-  if (totalWeight === 0) {
+  if (sortedProfileWeights.length === 0) {
     return {
       totalScore: 0,
       substatScores,
@@ -146,7 +153,13 @@ export function calculateArtifactScore(
     }
   }
 
-  const totalScore = weightedScoreSum / SUBSTAT_CONSTANT / (totalWeight / TOTAL_SUBSTATS)
+  const sumTopK = sortedProfileWeights.reduce((sum, w) => sum + w, 0)
+  const wMax = sortedProfileWeights[0] ?? 0
+  const maxAchievable = (sumTopK + BONUS_ROLLS * wMax) / MAX_ROLLS_5_STAR
+
+  // weightedScoreSum is in 0-100 range (scores are percentages), maxAchievable is in 0-1.5 range,
+  // so dividing gives a result already in 0-100 percentage range
+  const totalScore = weightedScoreSum / maxAchievable
 
   return {
     totalScore: Math.min(100, Math.max(0, totalScore)),
