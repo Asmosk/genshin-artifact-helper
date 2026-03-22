@@ -241,6 +241,13 @@ export async function recognizeRegions(
       positions.set('starAnchor', starRegionBounds)
     }
 
+    // 2b. Apply position overrides (e.g., ground-truth fixture regions in tests)
+    if (options.positionOverrides) {
+      for (const [regionName, position] of options.positionOverrides) {
+        positions.set(regionName, position)
+      }
+    }
+
     // 3. Process regions using layout-defined preprocessing as ground truth
     const newResults = options.parallelProcessing
       ? await processRegionsParallel(canvas, layout, positions, options)

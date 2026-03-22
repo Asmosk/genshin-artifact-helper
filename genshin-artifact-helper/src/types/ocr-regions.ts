@@ -198,6 +198,14 @@ export interface RegionOCROptions {
    * Pre-computed OCR results to merge into the final output (avoids re-running OCR on them).
    */
   precomputedResults?: RegionOCRResult[]
+
+  /**
+   * Override computed pixel positions for specific regions.
+   * Regions listed here use the provided pixel rectangle instead of the template-computed one.
+   * Regions not listed fall back to normal anchor-based calculation.
+   * Useful in tests where ground-truth region positions are known.
+   */
+  positionOverrides?: Map<string, Rectangle>
 }
 
 /**

@@ -43,6 +43,7 @@ interface FixtureSubstat {
 interface FixtureExpected {
   screen: string
   starCoords?: { x: number; y: number }
+  ocrRegions?: Record<string, { x: number; y: number; width: number; height: number }>
   set?: string
   slot?: string
   rarity?: number
@@ -245,11 +246,28 @@ describe('OCR Integration Tests', () => {
 
     const screenType = expected.screen as ArtifactScreenType
 
-    // Load image and run OCR with ground-truth anchor to isolate OCR quality
+    // Load image and run OCR with ground-truth region positions to isolate OCR quality
     const canvas = await loadFixtureCanvas(imageFile)
     const layout = getRegionTemplate(screenType)
+
+    // Convert fixture ocrRegions (absolute image fractions) to pixel positions
+    const positionOverrides = expected.ocrRegions
+      ? new Map(
+          Object.entries(expected.ocrRegions).map(([name, rect]) => [
+            name,
+            {
+              x: Math.round(rect.x * canvas.width),
+              y: Math.round(rect.y * canvas.height),
+              width: Math.round(rect.width * canvas.width),
+              height: Math.round(rect.height * canvas.height),
+            },
+          ]),
+        )
+      : undefined
+
     const regionResult = await recognizeRegions(canvas, layout, {
       anchorOverride: expected.starCoords,
+      positionOverrides,
     })
 
     // Set name: no set→piece mapping yet, log raw piece name as info
