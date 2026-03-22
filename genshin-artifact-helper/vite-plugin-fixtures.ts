@@ -38,52 +38,95 @@ export function fixturesPlugin(): Plugin {
         if (req.method !== 'GET') return next()
         try {
           const files = await fs.readdir(fixturesDir)
+          const pngNames = new Set(
+            files.filter((f) => f.endsWith('.png')).map((f) => f.slice(0, -4)),
+          )
           const jsonFiles = files.filter((f) => f.endsWith('.json') && f !== 'README.md')
-          const fixtures = await Promise.all(
+          const jsonNames = new Set(jsonFiles.map((f) => f.slice(0, -5)))
+
+          const withJson = await Promise.all(
             jsonFiles.map(async (f) => {
               const name = f.slice(0, -5)
               try {
                 const raw = await fs.readFile(path.join(fixturesDir, f), 'utf-8')
                 const data = JSON.parse(stripBom(raw))
-                return { name, hasStarCoords: !!data.expected?.starCoords, screen: data.expected?.screen as string | undefined }
+                return { name, hasJson: true, hasStarCoords: !!data.expected?.starCoords, screen: data.expected?.screen as string | undefined }
               } catch {
-                return { name, hasStarCoords: false }
+                return { name, hasJson: true, hasStarCoords: false }
               }
             }),
           )
+
+          const imageOnly = [...pngNames]
+            .filter((name) => !jsonNames.has(name))
+            .map((name) => ({ name, hasJson: false, hasStarCoords: false, screen: undefined }))
+
           const SCREEN_ORDER: Record<string, number> = { character: 0, inventory: 1, rewards: 2 }
-          sendJson(res, 200, fixtures.sort((a, b) => {
+          const sorted = withJson.sort((a, b) => {
             const sa = SCREEN_ORDER[a.screen ?? ''] ?? 3
             const sb = SCREEN_ORDER[b.screen ?? ''] ?? 3
             return sa !== sb ? sa - sb : a.name.localeCompare(b.name)
-          }))
+          })
+          const sortedImageOnly = imageOnly.sort((a, b) => a.name.localeCompare(b.name))
+
+          sendJson(res, 200, [...sorted, ...sortedImageOnly])
         } catch (err) {
           console.error('[fixtures] list error:', err)
           sendJson(res, 500, { error: String(err) })
         }
       })
 
-      // POST /api/fixture-save — body: { name: string, starCoords: { x: number, y: number } }
+      // POST /api/fixture-save — body: { name: string, starCoords: { x: number, y: number }, screen?: string }
       server.middlewares.use('/api/fixture-save', (req, res, next) => {
         if (req.method !== 'POST') return next()
         readBody(req)
           .then((bodyStr) => {
-            const { name, starCoords } = JSON.parse(bodyStr) as {
+            const { name, starCoords, screen } = JSON.parse(bodyStr) as {
               name: string
               starCoords: { x: number; y: number }
+              screen?: string
             }
             const filePath = path.join(fixturesDir, `${name}.json`)
             return fs
               .readFile(filePath, 'utf-8')
+              .catch(() => null)
               .then((raw) => {
-                const data = JSON.parse(stripBom(raw)) as { expected: Record<string, unknown> }
+                const data: { expected: Record<string, unknown> } = raw
+                  ? (JSON.parse(stripBom(raw)) as { expected: Record<string, unknown> })
+                  : { expected: {} }
                 data.expected['starCoords'] = starCoords
+                if (screen !== undefined) data.expected['screen'] = screen
                 return fs.writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
               })
               .then(() => sendJson(res, 200, { ok: true }))
           })
           .catch((err) => {
             console.error('[fixture-save] error:', err)
+            sendJson(res, 500, { error: String(err) })
+          })
+      })
+
+      // POST /api/fixture-save-screen — body: { name: string, screen: string }
+      server.middlewares.use('/api/fixture-save-screen', (req, res, next) => {
+        if (req.method !== 'POST') return next()
+        readBody(req)
+          .then((bodyStr) => {
+            const { name, screen } = JSON.parse(bodyStr) as { name: string; screen: string }
+            const filePath = path.join(fixturesDir, `${name}.json`)
+            return fs
+              .readFile(filePath, 'utf-8')
+              .catch(() => null)
+              .then((raw) => {
+                const data: { expected: Record<string, unknown> } = raw
+                  ? (JSON.parse(stripBom(raw)) as { expected: Record<string, unknown> })
+                  : { expected: {} }
+                data.expected['screen'] = screen
+                return fs.writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8')
+              })
+              .then(() => sendJson(res, 200, { ok: true }))
+          })
+          .catch((err) => {
+            console.error('[fixture-save-screen] error:', err)
             sendJson(res, 500, { error: String(err) })
           })
       })

@@ -7,6 +7,7 @@ import type { ArtifactScreenType } from '@/types/ocr-regions'
 
 interface FixtureMeta {
   name: string
+  hasJson: boolean
   hasStarCoords: boolean
   screen?: string
 }
@@ -100,6 +101,9 @@ const starPlaced = ref(false)
 const fixtureRegions = ref<WorkingRegion[]>([])
 const dataSource = ref<'fixture' | 'template' | 'none'>('none')
 
+// Screen type editor (always editable)
+const editableScreenType = ref<string>('')
+
 // Combined dirty/save state
 const isDirty = ref(false)
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -147,6 +151,13 @@ watch(
   },
 )
 
+// Re-init regions and mark dirty when screen type changes
+watch(editableScreenType, (val, old) => {
+  if (val === old || fixtureData.value === null) return
+  isDirty.value = true
+  if (imgLoaded.value) initRegions(false)
+})
+
 // When star coords change via drag and data source is template, re-init regions from new anchor
 watch(coords, () => {
   if (dataSource.value === 'template' && starPlaced.value && imgLoaded.value && fixtureData.value) {
@@ -158,10 +169,12 @@ watch(coords, () => {
 // ─── Computed ─────────────────────────────────────────────────────────────────
 
 const screenType = computed((): ArtifactScreenType | null => {
-  const s = fixtureData.value?.expected?.screen
+  const s = editableScreenType.value
   if (s === 'character' || s === 'inventory' || s === 'rewards') return s
   return null
 })
+
+const regionsActive = computed(() => screenType.value !== null && starPlaced.value)
 
 const anchorPct = computed(() => {
   const { w, h } = imgNaturalSize.value
@@ -630,8 +643,19 @@ async function selectFixture(name: string) {
   saveState.value = 'idle'
   dataSource.value = 'none'
 
+  const meta = fixtures.value.find((f) => f.name === name)
+  if (meta?.hasJson === false) {
+    fixtureData.value = { expected: {} }
+    editableScreenType.value = ''
+    coords.value = { x: 0, y: 0 }
+    starPlaced.value = false
+    return
+  }
+
   const res = await fetch(`/fixtures/${encodeURIComponent(name)}.json`)
   fixtureData.value = (await res.json()) as FixtureData
+
+  editableScreenType.value = fixtureData.value.expected.screen ?? ''
 
   const sc = fixtureData.value.expected.starCoords
   if (sc) {
@@ -661,13 +685,22 @@ async function save() {
 
   try {
     const promises: Promise<Response>[] = []
+    const screen = editableScreenType.value || undefined
 
     if (starPlaced.value) {
       promises.push(
         fetch('/api/fixture-save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: selectedName.value, starCoords: coords.value }),
+          body: JSON.stringify({ name: selectedName.value, starCoords: coords.value, screen }),
+        }),
+      )
+    } else if (screen) {
+      promises.push(
+        fetch('/api/fixture-save-screen', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: selectedName.value, screen }),
         }),
       )
     }
@@ -687,6 +720,11 @@ async function save() {
       )
     }
 
+    if (promises.length === 0) {
+      saveState.value = 'idle'
+      return
+    }
+
     const responses = await Promise.all(promises)
     for (const res of responses) {
       if (!res.ok) throw new Error(await res.text())
@@ -695,8 +733,15 @@ async function save() {
     if (fixtureData.value && starPlaced.value) {
       fixtureData.value.expected.starCoords = { ...coords.value }
     }
+    if (fixtureData.value && screen) {
+      fixtureData.value.expected.screen = screen
+    }
     const meta = fixtures.value.find((f) => f.name === selectedName.value)
-    if (meta) meta.hasStarCoords = starPlaced.value
+    if (meta) {
+      meta.hasStarCoords = starPlaced.value
+      meta.hasJson = true
+      meta.screen = screen
+    }
 
     if (fixtureRegions.value.length > 0) dataSource.value = 'fixture'
     isDirty.value = false
@@ -729,14 +774,17 @@ onMounted(loadFixtures)
           v-for="fixture in fixtures"
           :key="fixture.name"
           class="flex items-center justify-between px-3 py-1.5 cursor-pointer gap-1.5 border-l-[3px] border-transparent hover:bg-dark-800"
-          :class="{ 'bg-[#1e3a5f] border-l-[#4a9eff]': fixture.name === selectedName }"
+          :class="{ 'bg-[#1e3a5f] border-l-[#4a9eff]': fixture.name === selectedName, 'opacity-50': !fixture.hasJson }"
           @click="selectFixture(fixture.name)"
         >
-          <span class="truncate flex-1 min-w-0" :class="{ 'text-[#f5a623]': !fixture.hasStarCoords }">{{ fixture.name }}</span>
+          <span class="truncate flex-1 min-w-0" :class="{ 'text-[#f5a623]': fixture.hasJson && !fixture.hasStarCoords }">{{ fixture.name }}</span>
           <span class="flex items-center gap-1 shrink-0">
-            <span v-if="fixture.screen" class="screen-badge" :class="screenBadgeClass(fixture.screen)">{{ fixture.screen }}</span>
-            <span v-else class="screen-badge badge-unknown">?</span>
-            <span class="text-[11px]" :class="fixture.hasStarCoords ? 'text-dark-500' : 'text-[#f5a623]'" :title="fixture.hasStarCoords ? 'Has starCoords' : 'Missing starCoords'">{{ fixture.hasStarCoords ? '★' : '✗' }}</span>
+            <span v-if="!fixture.hasJson" class="screen-badge badge-new">new</span>
+            <template v-else>
+              <span v-if="fixture.screen" class="screen-badge" :class="screenBadgeClass(fixture.screen)">{{ fixture.screen }}</span>
+              <span v-else class="screen-badge badge-unknown">?</span>
+              <span class="text-[11px]" :class="fixture.hasStarCoords ? 'text-dark-500' : 'text-[#f5a623]'" :title="fixture.hasStarCoords ? 'Has starCoords' : 'Missing starCoords'">{{ fixture.hasStarCoords ? '★' : '✗' }}</span>
+            </template>
           </span>
         </li>
       </ul>
@@ -892,10 +940,30 @@ onMounted(loadFixtures)
             </div>
           </div>
 
+          <!-- ── Right sidebar ── -->
+          <aside v-if="selectedName" class="w-[200px] shrink-0 border-l border-dark-700 overflow-y-auto py-2">
+            <!-- Screen type selector -->
+            <div class="px-3 pt-1 pb-3 border-b border-dark-700">
+              <h3 class="text-[11px] uppercase tracking-widest text-gray-mid pb-2 m-0">Screen Type</h3>
+              <select
+                v-model="editableScreenType"
+                class="w-full bg-dark-800 text-[#e0e0e0] border border-dark-600 rounded px-2 py-1 text-xs font-mono cursor-pointer"
+              >
+                <option value="">— unset —</option>
+                <option value="character">character</option>
+                <option value="inventory">inventory</option>
+                <option value="rewards">rewards</option>
+                <option value="other">other</option>
+              </select>
+            </div>
+
           <!-- ── Region legend panel ── -->
-          <aside v-if="fixtureRegions.length > 0" class="w-[200px] shrink-0 border-l border-dark-700 overflow-y-auto py-2">
-            <h3 class="text-[11px] uppercase tracking-widest text-gray-mid px-3 pt-1 pb-2 m-0">Regions</h3>
-            <div class="flex flex-col gap-px">
+          <div class="pt-3 transition-opacity duration-150" :class="regionsActive ? '' : 'opacity-35 pointer-events-none'">
+            <h3 class="text-[11px] uppercase tracking-widest text-gray-mid px-3 pb-2 m-0">Regions</h3>
+            <div v-if="!regionsActive" class="px-3 text-[11px] text-dark-500 italic">
+              {{ !screenType ? 'set screen type to enable' : 'place star to enable' }}
+            </div>
+            <div v-else class="flex flex-col gap-px">
               <div
                 v-for="region in fixtureRegions"
                 :key="region.name"
@@ -922,6 +990,7 @@ onMounted(loadFixtures)
                 <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-[#1a2a3a] text-blue-400 border border-blue-400/25 whitespace-nowrap shrink-0">{{ region.ocrMode }}</span>
               </div>
             </div>
+          </div>
           </aside>
         </div>
 
@@ -960,7 +1029,7 @@ onMounted(loadFixtures)
 
             <button
               class="px-4 py-1 bg-[#2c7be5] text-white border-0 rounded cursor-pointer text-xs font-mono shrink-0 disabled:opacity-50 disabled:cursor-default hover:not-disabled:bg-[#3a8ef0]"
-              :disabled="saveState === 'saving' || !starPlaced"
+              :disabled="saveState === 'saving' || (!starPlaced && !editableScreenType)"
               @click="save"
             >
               {{ saveState === 'saving' ? 'Saving…' : 'Save' }}
