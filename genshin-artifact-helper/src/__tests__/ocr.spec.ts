@@ -239,8 +239,9 @@ describe('OCR Integration Tests', () => {
     const groundTruth = await loadGroundTruth(imageFile)
     const expected = groundTruth.expected
 
-    if (!expected.screen || !expected.starCoords) {
-      console.warn(`  ⚠️  ${imageFile}: missing screen or starCoords in ground truth, skipping`)
+    const hasOcrRegions = expected.ocrRegions && Object.keys(expected.ocrRegions).length > 0
+    if (!expected.screen || (!expected.starCoords && !hasOcrRegions)) {
+      console.warn(`  ⚠️  ${imageFile}: missing screen and no starCoords or ocrRegions in ground truth, skipping`)
       return
     }
 
@@ -265,8 +266,12 @@ describe('OCR Integration Tests', () => {
         )
       : undefined
 
+    // Use ground-truth starCoords as anchor if available; otherwise use a dummy anchor since
+    // positionOverrides from ocrRegions will replace all region positions anyway.
+    const anchorOverride = expected.starCoords ?? { x: 0, y: 0 }
+
     const regionResult = await recognizeRegions(canvas, layout, {
-      anchorOverride: expected.starCoords,
+      anchorOverride,
       positionOverrides,
     })
 
