@@ -18,6 +18,9 @@ export function useOCRDispatch(params: {
     try {
       const overrides = params.enabled.value ? params.options.value : undefined
       await ocrStore.processImage(captureStore.capturedImage.original, overrides)
+      if (ocrStore.hasResult) {
+        ocrStore.acceptResult()
+      }
     } catch (error) {
       console.error('OCR processing failed:', error)
       alert('OCR processing failed. See console for details.')

@@ -41,6 +41,7 @@ export const useOCRStore = defineStore('ocr', () => {
   const detectedAnchorPx = ref<{ x: number; y: number } | null>(null)
   const regionResults = ref<RegionOCRResult[]>([])
   const detectedScreenType = ref<DetectedScreenType | null>(null)
+  const detectedStarCount = ref<number | null>(null)
 
   /**
    * Tracks the last successfully identified screen type.
@@ -105,6 +106,7 @@ export const useOCRStore = defineStore('ocr', () => {
     detectedAnchorPx.value = null
     regionResults.value = []
     detectedScreenType.value = null
+    detectedStarCount.value = null
   }
 
   /**
@@ -356,14 +358,17 @@ export const useOCRStore = defineStore('ocr', () => {
       console.log('[Star Detection] Computed region positions:', Object.fromEntries(positions))
 
       detectedRarityBounds.value = detection.regionBounds
+      detectedStarCount.value = detection.stars.count
       detectedRegionPositions.value = positions
       activeLayout.value = layout
       error.value = null
+      state.value = 'idle'
     } else {
       console.log('[Star Detection] No stars found in image')
       state.value = 'error'
       error.value = 'Star detection failed: no stars found in image'
       detectedRarityBounds.value = null
+      detectedStarCount.value = null
       detectedRegionPositions.value = null
     }
   }
@@ -381,6 +386,7 @@ export const useOCRStore = defineStore('ocr', () => {
     detectedAnchorPx,
     regionResults,
     detectedScreenType,
+    detectedStarCount,
 
     // Getters
     isProcessing,
