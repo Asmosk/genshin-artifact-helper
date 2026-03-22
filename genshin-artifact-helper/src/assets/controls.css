@@ -130,6 +130,10 @@
   @apply bg-dark-700 text-gray-400;
 }
 
+.badge-new {
+  @apply bg-amber-900 text-amber-300;
+}
+
 .badge-ok {
   @apply bg-green-900 text-green-300;
 }

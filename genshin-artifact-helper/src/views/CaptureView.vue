@@ -7,6 +7,7 @@ import ArtifactScoreCard from '@/components/ArtifactScoreCard.vue'
 import BuildProfileSelector from '@/components/BuildProfileSelector.vue'
 import { useCaptureActions } from '@/composables/useCaptureActions'
 import { useOCRDispatch } from '@/composables/useOCRDispatch'
+import { useAutoPipeline } from '@/composables/useAutoPipeline'
 import { useCanvasPreview } from '@/composables/useCanvasPreview'
 import { defaultStarDetectionSettings } from '@/utils/star-detection'
 import { DEFAULT_PREPROCESSING } from '@/utils/ocr-region-templates'
@@ -23,6 +24,7 @@ const ocrDispatch = useOCRDispatch({
   enabled: ref(false),
   options: ref(DEFAULT_PREPROCESSING),
 })
+const autoPipeline = useAutoPipeline()
 
 useCanvasPreview({
   previewCanvasRef,
@@ -160,6 +162,17 @@ async function handleFileUpload(event: Event) {
               {{ ocrPerformed ? 'done' : '—' }}
             </span>
           </div>
+          <div v-if="captureActions.hasCapture.value" class="flex justify-between gap-2">
+            <span class="text-gray-mid">Scanner</span>
+            <span
+              :class="{
+                'text-neon-green': autoPipeline.status.value === 'waiting',
+                'text-amber-400': autoPipeline.status.value === 'processing',
+              }"
+            >
+              {{ autoPipeline.status.value === 'processing' ? 'Processing…' : 'Waiting…' }}
+            </span>
+          </div>
         </template>
         <span v-else class="text-dark-500 italic text-center">No image captured</span>
       </div>
@@ -175,21 +188,9 @@ async function handleFileUpload(event: Event) {
         >
           Start Capture
         </button>
-        <template v-else>
-          <button class="btn btn-danger" @click="captureActions.stopScreenCapture">
-            Stop Capture
-          </button>
-          <button
-            class="btn btn-secondary"
-            :disabled="captureActions.isContinuous.value"
-            @click="captureActions.captureSingleFrame"
-          >
-            Capture Frame
-          </button>
-          <button class="btn btn-secondary" @click="captureActions.toggleContinuousCapture">
-            {{ captureActions.isContinuous.value ? 'Stop Continuous' : 'Start Continuous' }}
-          </button>
-        </template>
+        <button v-else class="btn btn-danger" @click="captureActions.stopScreenCapture">
+          Stop Capture
+        </button>
 
         <button class="btn btn-secondary" @click="triggerFileUpload">Upload Image</button>
 

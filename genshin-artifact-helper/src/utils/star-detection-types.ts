@@ -55,7 +55,7 @@ export const defaultStarDetectionSettings: StarDetectionSettings = {
   starColorR: 255,
   starColorG: 204,
   starColorB: 50,
-  colorTolerance: 5,
+  colorTolerance: 20,
   gridSizePercent: 0.0305,
   starSizePercent: 0.025,
   starDistancePercent: 0.03,

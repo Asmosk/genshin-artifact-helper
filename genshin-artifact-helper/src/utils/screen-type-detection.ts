@@ -189,13 +189,14 @@ function detectCharacterScreen(ctx: CanvasRenderingContext2D): boolean {
  * Both conditions must pass.
  */
 function detectInventoryScreen(ctx: CanvasRenderingContext2D): boolean {
+  const isCreamStrict = (r: number, g: number, b: number) => matchesColor(r, g, b, CREAM, 8)
   const isCream = (r: number, g: number, b: number) => matchesColor(r, g, b, CREAM, 15)
   const NARROW_MAX = 30
   const WIDE_MIN = 31
 
   // Left strip: exactly 5 regions, first 3 narrow, last 2 wide
   const leftStrip = sampleRect(ctx, 0.02, 0.91, 0.35, 0.99)
-  const leftRegions = findSplitRegions(leftStrip, isCream, 3, 3, 3, 200)
+  const leftRegions = findSplitRegions(leftStrip, isCreamStrict, 3, 3, 3, 200)
   if (leftRegions.length !== 5) return false
   if (!leftRegions.slice(0, 3).every((w) => w <= NARROW_MAX)) return false
   if (!leftRegions.slice(3).every((w) => w >= WIDE_MIN)) return false
