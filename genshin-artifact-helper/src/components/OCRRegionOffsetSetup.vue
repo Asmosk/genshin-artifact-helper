@@ -102,16 +102,16 @@ async function copyTypeScript() {
 </script>
 
 <template>
-  <div class="region-offset-setup">
+  <div class="flex flex-col gap-1 py-2 text-xs">
     <!-- Screen Type Selector -->
-    <div class="setup-row">
-      <span class="setup-label">Screen Type</span>
-      <div class="screen-type-buttons">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="text-gray-400 shrink-0 w-20">Screen Type</span>
+      <div class="flex gap-1">
         <button
           v-for="type in SCREEN_TYPES"
           :key="type"
           class="btn btn-small"
-          :class="{ 'btn-active': screenType === type }"
+          :class="type === screenType ? 'bg-dark-600 text-white border border-dark-500' : ''"
           @click="emit('update:screenType', type)"
         >
           {{ type }}
@@ -120,14 +120,14 @@ async function copyTypeScript() {
     </div>
 
     <!-- Anchor Point -->
-    <details open class="region-section">
+    <details open class="border-t border-dark-800">
       <summary class="section-summary">Anchor Point</summary>
-      <div class="fields">
-        <div v-for="axis in (['x', 'y'] as const)" :key="axis" class="slider-row">
-          <span class="field-label">{{ axis }}</span>
+      <div class="flex flex-col gap-1 p-1 pb-2">
+        <div v-for="axis in (['x', 'y'] as const)" :key="axis" class="flex items-center gap-1.5">
+          <span class="text-gray-mid w-10 shrink-0 text-[11px]">{{ axis }}</span>
           <input
             type="range"
-            class="slider"
+            class="flex-1 h-[3px] cursor-pointer accent-[#559955]"
             :min="ANCHOR_RANGE.min"
             :max="ANCHOR_RANGE.max"
             :step="ANCHOR_RANGE.step"
@@ -135,24 +135,24 @@ async function copyTypeScript() {
             @input="updateAnchor(axis, parseFloat(($event.target as HTMLInputElement).value))"
             @wheel.prevent="onSliderWheel($event, anchor[axis], ANCHOR_RANGE, (v) => updateAnchor(axis, v))"
           />
-          <span class="field-value">{{ fmt(anchor[axis]) }}</span>
+          <span class="font-mono text-[11px] text-gray-300 w-14 text-right shrink-0">{{ fmt(anchor[axis]) }}</span>
         </div>
       </div>
     </details>
 
     <!-- One collapsible per region -->
-    <details v-for="key in REGION_KEYS" :key="key" class="region-section">
+    <details v-for="key in REGION_KEYS" :key="key" class="border-t border-dark-800">
       <summary class="section-summary">{{ key }}</summary>
-      <div class="fields">
+      <div class="flex flex-col gap-1 p-1 pb-2">
         <div
           v-for="field in (['x', 'y', 'width', 'height'] as const)"
           :key="field"
-          class="slider-row"
+          class="flex items-center gap-1.5"
         >
-          <span class="field-label">{{ field }}</span>
+          <span class="text-gray-mid w-10 shrink-0 text-[11px]">{{ field }}</span>
           <input
             type="range"
-            class="slider"
+            class="flex-1 h-[3px] cursor-pointer accent-[#559955]"
             :min="FIELD_RANGES[field].min"
             :max="FIELD_RANGES[field].max"
             :step="FIELD_RANGES[field].step"
@@ -160,57 +160,23 @@ async function copyTypeScript() {
             @input="updateRegionField(key, field, parseFloat(($event.target as HTMLInputElement).value))"
             @wheel.prevent="onSliderWheel($event, modelValue.regions[key][field], FIELD_RANGES[field], (v) => updateRegionField(key, field, v))"
           />
-          <span class="field-value">{{ fmt(modelValue.regions[key][field]) }}</span>
+          <span class="font-mono text-[11px] text-gray-300 w-14 text-right shrink-0">{{ fmt(modelValue.regions[key][field]) }}</span>
         </div>
       </div>
     </details>
 
     <!-- Actions -->
-    <div class="setup-actions">
+    <div class="flex gap-1.5 justify-end pt-1.5 border-t border-dark-800">
       <button class="btn btn-small" @click="emit('reset')">Reset to Defaults</button>
-      <button class="btn btn-small btn-accent" @click="copyTypeScript">Copy Values</button>
+      <button
+        class="btn btn-small bg-[#1a3a1a] border border-[#2a6a2a] text-[#88cc88] hover:bg-[#2a4a2a]"
+        @click="copyTypeScript"
+      >Copy Values</button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.region-offset-setup {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px 0;
-  font-size: 12px;
-}
-
-.setup-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.setup-label {
-  color: #aaa;
-  flex-shrink: 0;
-  width: 80px;
-}
-
-.screen-type-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.btn-active {
-  background: #444;
-  color: #fff;
-  border-color: #666;
-}
-
-/* Collapsible region sections */
-.region-section {
-  border-top: 1px solid #2a2a2a;
-}
-
 .section-summary {
   color: #aaa;
   font-size: 11px;
@@ -240,60 +206,5 @@ details[open] > .section-summary::before {
 
 .section-summary::-webkit-details-marker {
   display: none;
-}
-
-/* Slider rows */
-.fields {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 4px 8px 4px;
-}
-
-.slider-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.field-label {
-  color: #888;
-  width: 40px;
-  flex-shrink: 0;
-  font-size: 11px;
-}
-
-.slider {
-  flex: 1;
-  height: 3px;
-  accent-color: #559955;
-  cursor: pointer;
-}
-
-.field-value {
-  font-family: monospace;
-  font-size: 11px;
-  color: #ccc;
-  width: 58px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.setup-actions {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-  padding-top: 6px;
-  border-top: 1px solid #2a2a2a;
-}
-
-.btn-accent {
-  background: #1a3a1a;
-  border-color: #2a6a2a;
-  color: #88cc88;
-}
-
-.btn-accent:hover {
-  background: #2a4a2a;
 }
 </style>

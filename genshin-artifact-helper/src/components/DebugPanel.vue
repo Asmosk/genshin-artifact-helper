@@ -41,11 +41,11 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="control-section debug-section">
-    <h2 class="collapsible-header" @click="emit('update:showDebugMenu', !showDebugMenu)">
+  <section class="control-section border border-dark-600">
+    <h2 class="cursor-pointer select-none hover:text-gray-400" @click="emit('update:showDebugMenu', !showDebugMenu)">
       {{ showDebugMenu ? '&#x25BC;' : '&#x25B6;' }} Debug
     </h2>
-    <div v-if="showDebugMenu" class="debug-controls">
+    <div v-if="showDebugMenu" class="flex flex-col gap-2 mt-2">
       <div class="checkbox-control">
         <label>
           <input
@@ -58,16 +58,16 @@ const emit = defineEmits<{
         <small>Process regions simultaneously</small>
       </div>
       <button
-        class="btn btn-secondary debug-btn"
-        :class="{ 'debug-btn-active': debugShowStarDetection }"
+        class="btn btn-secondary text-left text-[0.85rem]"
+        :class="debugShowStarDetection ? 'bg-gold-dark text-gold border border-gold' : ''"
         :disabled="!hasImage"
         @click="emit('toggleStarDetectionDebug')"
       >
         Draw Star Detection Data
       </button>
       <button
-        class="btn btn-secondary debug-btn"
-        :class="{ 'debug-btn-active': showRegionOffsetSetup }"
+        class="btn btn-secondary text-left text-[0.85rem]"
+        :class="showRegionOffsetSetup ? 'bg-gold-dark text-gold border border-gold' : ''"
         @click="emit('toggleRegionOffsetSetup')"
       >
         OCR Region Offset Setup
@@ -80,19 +80,19 @@ const emit = defineEmits<{
         @update:screen-type="emit('editor-screen-type-change', $event)"
         @reset="emit('initRegionEditorLayout')"
       />
-      <div v-if="debugShowStarDetection && debugStarData" class="debug-info">
+      <div v-if="debugShowStarDetection && debugStarData" class="flex flex-col gap-1 p-2 bg-dark-900 rounded text-xs font-mono text-gold">
         <span v-if="debugStarData.detectedCenter">
           Center: ({{ debugStarData.detectedCenter.x }}, {{ debugStarData.detectedCenter.y }})
           &mdash; {{ debugStarData.starCount }}&#x2605;
         </span>
-        <span v-else class="debug-no-stars">No stars detected</span>
-        <small
+        <span v-else class="text-red-400">No stars detected</span>
+        <small class="text-gray-mid font-mono"
           >{{ debugStarData.blocks.length }} active blocks &bull; grid
           {{ debugStarData.gridSize }}px</small
         >
       </div>
-      <div v-if="debugShowStarDetection" class="star-settings-panel">
-        <div class="star-settings-header">
+      <div v-if="debugShowStarDetection" class="flex flex-col gap-1.5 p-2.5 bg-dark-900 rounded border border-gold-dark">
+        <div class="flex justify-between items-center text-xs text-gold font-bold mb-1">
           <span>Star Detection Settings</span>
           <button
             class="btn btn-small"
@@ -101,368 +101,108 @@ const emit = defineEmits<{
             Reset Defaults
           </button>
         </div>
-        <div class="star-setting-row star-histogram-row">
-          <label>
-            <input
-              type="checkbox"
-              :checked="debugShowHistograms"
-              :disabled="!debugStarData"
-              @change="emit('update:debugShowHistograms', !debugShowHistograms)"
-            />
-            Draw Color Histograms
-          </label>
-        </div>
+        <!-- Histogram checkbox -->
+        <label class="flex items-center gap-1.5 text-xs text-gray-400 font-mono cursor-pointer accent-gold">
+          <input
+            type="checkbox"
+            class="accent-[#ffcc32]"
+            :checked="debugShowHistograms"
+            :disabled="!debugStarData"
+            @change="emit('update:debugShowHistograms', !debugShowHistograms)"
+          />
+          Draw Color Histograms
+        </label>
         <!-- Algorithm selector -->
-        <div class="star-setting-row">
-          <label>Algorithm <span>{{ starAlgorithmMode }}</span></label>
-          <div class="star-finder-toggle">
+        <div class="flex flex-col gap-0.5">
+          <label class="flex justify-between text-xs text-gray-400 font-mono">Algorithm <span class="text-gold">{{ starAlgorithmMode }}</span></label>
+          <div class="flex gap-1">
             <button
               class="btn btn-small"
-              :class="{ 'star-finder-active': starAlgorithmMode === 'legacy' }"
+              :class="starAlgorithmMode === 'legacy' ? 'bg-gold-dark text-gold border border-gold' : ''"
               @click="emit('update:starAlgorithmMode', 'legacy')"
-            >
-              Legacy
-            </button>
+            >Legacy</button>
             <button
               class="btn btn-small"
-              :class="{ 'star-finder-active': starAlgorithmMode === 'projection' }"
+              :class="starAlgorithmMode === 'projection' ? 'bg-gold-dark text-gold border border-gold' : ''"
               @click="emit('update:starAlgorithmMode', 'projection')"
-            >
-              Projection
-            </button>
+            >Projection</button>
           </div>
         </div>
-        <!-- Common settings -->
-        <div class="star-color-preview-row">
+        <!-- Color preview -->
+        <div class="flex items-center gap-2 text-xs text-gray-400 font-mono mb-1">
           <span>Star Color:</span>
           <div
-            class="star-color-swatch"
-            :style="{
-              background: `rgb(${starSettings.starColorR}, ${starSettings.starColorG}, ${starSettings.starColorB})`,
-            }"
+            class="w-5 h-5 rounded-sm border border-dark-500 shrink-0"
+            :style="{ background: `rgb(${starSettings.starColorR}, ${starSettings.starColorG}, ${starSettings.starColorB})` }"
           />
-          <code
-            >rgb({{ starSettings.starColorR }}, {{ starSettings.starColorG }},
-            {{ starSettings.starColorB }})</code
-          >
+          <code>rgb({{ starSettings.starColorR }}, {{ starSettings.starColorG }}, {{ starSettings.starColorB }})</code>
         </div>
-        <div class="star-setting-row">
-          <label>R <span>{{ starSettings.starColorR }}</span></label>
-          <input
-            type="range"
-            min="0"
-            max="255"
-            step="1"
-            :value="starSettings.starColorR"
-            @input="emit('update:starSettings', { ...starSettings, starColorR: Number(($event.target as HTMLInputElement).value) })"
-          />
+        <!-- RGB sliders -->
+        <div v-for="channel in (['starColorR', 'starColorG', 'starColorB'] as const)" :key="channel" class="flex flex-col gap-0.5">
+          <label class="flex justify-between text-xs text-gray-400 font-mono">{{ channel.slice(-1) }} <span class="text-gold">{{ starSettings[channel] }}</span></label>
+          <input type="range" min="0" max="255" step="1" class="w-full accent-[#ffcc32] cursor-pointer" :value="starSettings[channel]" @input="emit('update:starSettings', { ...starSettings, [channel]: Number(($event.target as HTMLInputElement).value) })" />
         </div>
-        <div class="star-setting-row">
-          <label>G <span>{{ starSettings.starColorG }}</span></label>
-          <input
-            type="range"
-            min="0"
-            max="255"
-            step="1"
-            :value="starSettings.starColorG"
-            @input="emit('update:starSettings', { ...starSettings, starColorG: Number(($event.target as HTMLInputElement).value) })"
-          />
+        <!-- Common sliders -->
+        <div class="flex flex-col gap-0.5">
+          <label class="flex justify-between text-xs text-gray-400 font-mono">Color Tolerance <span class="text-gold">{{ starSettings.colorTolerance }}</span></label>
+          <input type="range" min="0" max="100" step="1" class="w-full accent-[#ffcc32] cursor-pointer" :value="starSettings.colorTolerance" @input="emit('update:starSettings', { ...starSettings, colorTolerance: Number(($event.target as HTMLInputElement).value) })" />
         </div>
-        <div class="star-setting-row">
-          <label>B <span>{{ starSettings.starColorB }}</span></label>
-          <input
-            type="range"
-            min="0"
-            max="255"
-            step="1"
-            :value="starSettings.starColorB"
-            @input="emit('update:starSettings', { ...starSettings, starColorB: Number(($event.target as HTMLInputElement).value) })"
-          />
+        <div class="flex flex-col gap-0.5">
+          <label class="flex justify-between text-xs text-gray-400 font-mono">Star Size % <span class="text-gold">{{ starSettings.starSizePercent.toFixed(4) }}</span></label>
+          <input type="range" min="0.01" max="0.08" step="0.001" class="w-full accent-[#ffcc32] cursor-pointer" :value="starSettings.starSizePercent" @input="emit('update:starSettings', { ...starSettings, starSizePercent: Number(($event.target as HTMLInputElement).value) })" />
         </div>
-        <div class="star-setting-row">
-          <label>Color Tolerance <span>{{ starSettings.colorTolerance }}</span></label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            :value="starSettings.colorTolerance"
-            @input="emit('update:starSettings', { ...starSettings, colorTolerance: Number(($event.target as HTMLInputElement).value) })"
-          />
-        </div>
-        <div class="star-setting-row">
-          <label>Star Size % <span>{{ starSettings.starSizePercent.toFixed(4) }}</span></label>
-          <input
-            type="range"
-            min="0.01"
-            max="0.08"
-            step="0.001"
-            :value="starSettings.starSizePercent"
-            @input="emit('update:starSettings', { ...starSettings, starSizePercent: Number(($event.target as HTMLInputElement).value) })"
-          />
-        </div>
-        <div class="star-setting-row">
-          <label
-            >Star Distance %
-            <span>{{ starSettings.starDistancePercent.toFixed(4) }}</span></label
-          >
-          <input
-            type="range"
-            min="0.005"
-            max="0.1"
-            step="0.0005"
-            :value="starSettings.starDistancePercent"
-            @input="emit('update:starSettings', { ...starSettings, starDistancePercent: Number(($event.target as HTMLInputElement).value) })"
-          />
+        <div class="flex flex-col gap-0.5">
+          <label class="flex justify-between text-xs text-gray-400 font-mono">Star Distance % <span class="text-gold">{{ starSettings.starDistancePercent.toFixed(4) }}</span></label>
+          <input type="range" min="0.005" max="0.1" step="0.0005" class="w-full accent-[#ffcc32] cursor-pointer" :value="starSettings.starDistancePercent" @input="emit('update:starSettings', { ...starSettings, starDistancePercent: Number(($event.target as HTMLInputElement).value) })" />
         </div>
         <!-- Legacy-specific settings -->
         <template v-if="starAlgorithmMode === 'legacy'">
-          <div class="star-setting-row">
-            <label>Center Finder <span>{{ starCenterFinderMode }}</span></label>
-            <div class="star-finder-toggle">
-              <button
-                class="btn btn-small"
-                :class="{ 'star-finder-active': starCenterFinderMode === 'legacy' }"
-                @click="emit('update:starCenterFinderMode', 'legacy')"
-              >
-                Legacy
-              </button>
-              <button
-                class="btn btn-small"
-                :class="{ 'star-finder-active': starCenterFinderMode === 'region' }"
-                @click="emit('update:starCenterFinderMode', 'region')"
-              >
-                Region
-              </button>
+          <div class="flex flex-col gap-0.5">
+            <label class="flex justify-between text-xs text-gray-400 font-mono">Center Finder <span class="text-gold">{{ starCenterFinderMode }}</span></label>
+            <div class="flex gap-1">
+              <button class="btn btn-small" :class="starCenterFinderMode === 'legacy' ? 'bg-gold-dark text-gold border border-gold' : ''" @click="emit('update:starCenterFinderMode', 'legacy')">Legacy</button>
+              <button class="btn btn-small" :class="starCenterFinderMode === 'region' ? 'bg-gold-dark text-gold border border-gold' : ''" @click="emit('update:starCenterFinderMode', 'region')">Region</button>
             </div>
           </div>
-          <div class="star-setting-row">
-            <label
-              >Grid Size %
-              <span>{{ starSettings.gridSizePercent.toFixed(4) }}</span></label
-            >
-            <input
-              type="range"
-              min="0.002"
-              max="0.05"
-              step="0.0005"
-              :value="starSettings.gridSizePercent"
-              @input="emit('update:starSettings', { ...starSettings, gridSizePercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Pass 1 Sample %<span>{{
-                starSettings.pass1SamplePercent.toFixed(2)
-              }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="1"
-              step="0.005"
-              :value="starSettings.pass1SamplePercent"
-              @input="emit('update:starSettings', { ...starSettings, pass1SamplePercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Pass 1 Threshold
-              <span>{{ starSettings.pass1MatchThreshold }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="1"
-              step="0.005"
-              :value="starSettings.pass1MatchThreshold"
-              @input="emit('update:starSettings', { ...starSettings, pass1MatchThreshold: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Pass 2 Sample %<span>{{
-                starSettings.pass2SamplePercent.toFixed(2)
-              }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="1"
-              step="0.005"
-              :value="starSettings.pass2SamplePercent"
-              @input="emit('update:starSettings', { ...starSettings, pass2SamplePercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Pass 2 Threshold
-              <span>{{ starSettings.pass2MatchThreshold }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="1"
-              step="0.005"
-              :value="starSettings.pass2MatchThreshold"
-              @input="emit('update:starSettings', { ...starSettings, pass2MatchThreshold: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Pass 3 Sample %<span>{{
-                starSettings.pass3SamplePercent.toFixed(2)
-              }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="1"
-              step="0.005"
-              :value="starSettings.pass3SamplePercent"
-              @input="emit('update:starSettings', { ...starSettings, pass3SamplePercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Pass 3 Threshold
-              <span>{{ starSettings.pass3MatchThreshold }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="1"
-              step="0.005"
-              :value="starSettings.pass3MatchThreshold"
-              @input="emit('update:starSettings', { ...starSettings, pass3MatchThreshold: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Confirm Threshold
-              <span>{{ starSettings.confirmThreshold.toFixed(2) }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="1"
-              step="0.005"
-              :value="starSettings.confirmThreshold"
-              @input="emit('update:starSettings', { ...starSettings, confirmThreshold: Number(($event.target as HTMLInputElement).value) })"
-            />
+          <div v-for="[label, prop, min, max, step] in [
+            ['Grid Size %', 'gridSizePercent', '0.002', '0.05', '0.0005'],
+            ['Pass 1 Sample %', 'pass1SamplePercent', '0.005', '1', '0.005'],
+            ['Pass 1 Threshold', 'pass1MatchThreshold', '0.005', '1', '0.005'],
+            ['Pass 2 Sample %', 'pass2SamplePercent', '0.005', '1', '0.005'],
+            ['Pass 2 Threshold', 'pass2MatchThreshold', '0.005', '1', '0.005'],
+            ['Pass 3 Sample %', 'pass3SamplePercent', '0.005', '1', '0.005'],
+            ['Pass 3 Threshold', 'pass3MatchThreshold', '0.005', '1', '0.005'],
+            ['Confirm Threshold', 'confirmThreshold', '0.005', '1', '0.005'],
+          ] as const" :key="prop" class="flex flex-col gap-0.5">
+            <label class="flex justify-between text-xs text-gray-400 font-mono">{{ label }} <span class="text-gold">{{ (starSettings[prop] as number).toFixed(prop.includes('Percent') || prop === 'confirmThreshold' ? 4 : 4) }}</span></label>
+            <input type="range" :min="min" :max="max" :step="step" class="w-full accent-[#ffcc32] cursor-pointer" :value="starSettings[prop] as number" @input="emit('update:starSettings', { ...starSettings, [prop]: Number(($event.target as HTMLInputElement).value) })" />
           </div>
         </template>
         <!-- Projection-specific settings -->
         <template v-else>
-          <div class="star-setting-row">
-            <label
-              >Col Min %
-              <span>{{ starSettings.projColMinPercent.toFixed(4) }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="0.1"
-              step="0.001"
-              :value="starSettings.projColMinPercent"
-              @input="emit('update:starSettings', { ...starSettings, projColMinPercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Col Max %
-              <span>{{ starSettings.projColMaxPercent.toFixed(4) }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="0.1"
-              step="0.001"
-              :value="starSettings.projColMaxPercent"
-              @input="emit('update:starSettings', { ...starSettings, projColMaxPercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Col Min Pixels
-              <span>{{ starSettings.projColMinPixels }}</span></label
-            >
-            <input
-              type="range"
-              min="1"
-              max="20"
-              step="1"
-              :value="starSettings.projColMinPixels"
-              @input="emit('update:starSettings', { ...starSettings, projColMinPixels: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Row Min %
-              <span>{{ starSettings.projRowMinPercent.toFixed(4) }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="0.1"
-              step="0.001"
-              :value="starSettings.projRowMinPercent"
-              @input="emit('update:starSettings', { ...starSettings, projRowMinPercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Row Max %
-              <span>{{ starSettings.projRowMaxPercent.toFixed(4) }}</span></label
-            >
-            <input
-              type="range"
-              min="0.005"
-              max="0.1"
-              step="0.001"
-              :value="starSettings.projRowMaxPercent"
-              @input="emit('update:starSettings', { ...starSettings, projRowMaxPercent: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Spacing Tolerance
-              <span>{{ starSettings.projSpacingTolerance.toFixed(2) }}</span></label
-            >
-            <input
-              type="range"
-              min="0.01"
-              max="0.5"
-              step="0.01"
-              :value="starSettings.projSpacingTolerance"
-              @input="emit('update:starSettings', { ...starSettings, projSpacingTolerance: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="star-setting-row">
-            <label
-              >Y Window (px)
-              <span>{{ starSettings.projYWindowPx }}</span></label
-            >
-            <input
-              type="range"
-              min="0"
-              max="10"
-              step="1"
-              :value="starSettings.projYWindowPx"
-              @input="emit('update:starSettings', { ...starSettings, projYWindowPx: Number(($event.target as HTMLInputElement).value) })"
-            />
+          <div v-for="[label, prop, min, max, step] in [
+            ['Col Min %', 'projColMinPercent', '0.005', '0.1', '0.001'],
+            ['Col Max %', 'projColMaxPercent', '0.005', '0.1', '0.001'],
+            ['Col Min Pixels', 'projColMinPixels', '1', '20', '1'],
+            ['Row Min %', 'projRowMinPercent', '0.005', '0.1', '0.001'],
+            ['Row Max %', 'projRowMaxPercent', '0.005', '0.1', '0.001'],
+            ['Spacing Tolerance', 'projSpacingTolerance', '0.01', '0.5', '0.01'],
+            ['Y Window (px)', 'projYWindowPx', '0', '10', '1'],
+          ] as const" :key="prop" class="flex flex-col gap-0.5">
+            <label class="flex justify-between text-xs text-gray-400 font-mono">{{ label }} <span class="text-gold">{{ starSettings[prop] as number }}</span></label>
+            <input type="range" :min="min" :max="max" :step="step" class="w-full accent-[#ffcc32] cursor-pointer" :value="starSettings[prop] as number" @input="emit('update:starSettings', { ...starSettings, [prop]: Number(($event.target as HTMLInputElement).value) })" />
           </div>
         </template>
       </div>
       <button
-        class="btn btn-secondary debug-btn"
-        :class="{ 'debug-btn-active': debugPreprocessingEnabled }"
+        class="btn btn-secondary text-left text-[0.85rem]"
+        :class="debugPreprocessingEnabled ? 'bg-gold-dark text-gold border border-gold' : ''"
         @click="emit('update:debugPreprocessingEnabled', !debugPreprocessingEnabled)"
       >
         OCR Region Preprocessing Setup
       </button>
-      <div v-if="debugPreprocessingEnabled" class="preproc-settings-panel">
-        <div class="preproc-settings-header">
+      <div v-if="debugPreprocessingEnabled" class="flex flex-col gap-1.5 p-2.5 bg-dark-900 rounded border border-gold-dark">
+        <div class="flex justify-between items-center text-xs text-gold font-bold mb-1">
           <span>Preprocessing Options</span>
           <button
             class="btn btn-small"
@@ -471,346 +211,22 @@ const emit = defineEmits<{
             Reset Defaults
           </button>
         </div>
-        <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.grayscale"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, grayscale: !debugPreprocessingOptions.grayscale })"
-              />
-              grayscale</label
-            >
-          </div>
-          <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.enhanceContrast"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, enhanceContrast: !debugPreprocessingOptions.enhanceContrast })"
-              />
-              enhanceContrast</label
-            >
-          </div>
-          <div class="preproc-slider-row">
-            <label
-              >contrastFactor
-              <span>{{ debugPreprocessingOptions.contrastFactor.toFixed(1) }}</span></label
-            >
-            <input
-              type="range"
-              min="1.0"
-              max="3.0"
-              step="0.1"
-              :value="debugPreprocessingOptions.contrastFactor"
-              @input="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, contrastFactor: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.denoise"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, denoise: !debugPreprocessingOptions.denoise })"
-              />
-              denoise</label
-            >
-          </div>
-          <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.sharpen"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, sharpen: !debugPreprocessingOptions.sharpen })"
-              />
-              sharpen</label
-            >
-          </div>
-          <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.adaptive"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, adaptive: !debugPreprocessingOptions.adaptive })"
-              />
-              adaptive</label
-            >
-          </div>
-          <div class="preproc-slider-row">
-            <label
-              >adaptiveBlockSize
-              <span>{{ debugPreprocessingOptions.adaptiveBlockSize }}</span></label
-            >
-            <input
-              type="range"
-              min="7"
-              max="21"
-              step="2"
-              :value="debugPreprocessingOptions.adaptiveBlockSize"
-              @input="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, adaptiveBlockSize: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.upscale"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, upscale: !debugPreprocessingOptions.upscale })"
-              />
-              upscale</label
-            >
-          </div>
-          <div class="preproc-slider-row">
-            <label
-              >scaleFactor
-              <span>{{ debugPreprocessingOptions.scaleFactor }}</span></label
-            >
-            <input
-              type="range"
-              min="1"
-              max="4"
-              step="1"
-              :value="debugPreprocessingOptions.scaleFactor"
-              @input="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, scaleFactor: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.genshinOptimized"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, genshinOptimized: !debugPreprocessingOptions.genshinOptimized })"
-              />
-              genshinOptimized</label
-            >
-          </div>
-          <div class="preproc-slider-row">
-            <label
-              >backgroundThreshold
-              <span>{{ debugPreprocessingOptions.backgroundThreshold }}</span></label
-            >
-            <input
-              type="range"
-              min="0"
-              max="255"
-              step="5"
-              :value="debugPreprocessingOptions.backgroundThreshold"
-              @input="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, backgroundThreshold: Number(($event.target as HTMLInputElement).value) })"
-            />
-          </div>
-          <div class="preproc-bool-row">
-            <label
-              ><input
-                type="checkbox"
-                :checked="debugPreprocessingOptions.invert"
-                @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, invert: !debugPreprocessingOptions.invert })"
-              />
-              invert</label
-            >
-          </div>
+        <div v-for="key in ['grayscale', 'enhanceContrast', 'denoise', 'sharpen', 'adaptive', 'upscale', 'genshinOptimized', 'invert'] as const" :key="key">
+          <label class="flex items-center gap-1.5 text-xs text-gray-400 font-mono cursor-pointer">
+            <input type="checkbox" class="accent-[#ffcc32]" :checked="debugPreprocessingOptions[key] as boolean" @change="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, [key]: !debugPreprocessingOptions[key] })" />
+            {{ key }}
+          </label>
         </div>
+        <div v-for="[label, prop, min, max, step] in [
+          ['contrastFactor', 'contrastFactor', '1.0', '3.0', '0.1'],
+          ['adaptiveBlockSize', 'adaptiveBlockSize', '7', '21', '2'],
+          ['scaleFactor', 'scaleFactor', '1', '4', '1'],
+          ['backgroundThreshold', 'backgroundThreshold', '0', '255', '5'],
+        ] as const" :key="prop" class="flex flex-col gap-0.5">
+          <label class="flex justify-between text-xs text-gray-400 font-mono">{{ label }} <span class="text-gold">{{ debugPreprocessingOptions[prop] as number }}</span></label>
+          <input type="range" :min="min" :max="max" :step="step" class="w-full accent-[#ffcc32] cursor-pointer" :value="debugPreprocessingOptions[prop] as number" @input="emit('update:debugPreprocessingOptions', { ...debugPreprocessingOptions, [prop]: Number(($event.target as HTMLInputElement).value) })" />
+        </div>
+      </div>
     </div>
   </section>
 </template>
-
-<style scoped>
-.debug-section {
-  border: 1px solid #444;
-}
-
-.collapsible-header {
-  cursor: pointer;
-  user-select: none;
-}
-
-.collapsible-header:hover {
-  color: #aaa;
-}
-
-.debug-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.debug-btn {
-  text-align: left;
-  font-size: 0.85rem;
-}
-
-.debug-btn-active {
-  background: #554400;
-  color: #ffcc32;
-  border: 1px solid #ffcc32;
-}
-
-.debug-btn-active:hover:not(:disabled) {
-  background: #665500;
-}
-
-.debug-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.5rem;
-  background: #1a1a1a;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-family: monospace;
-  color: #ffcc32;
-}
-
-.debug-no-stars {
-  color: #ff6666;
-}
-
-.debug-info small {
-  color: #888;
-  font-family: monospace;
-}
-
-.star-settings-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.6rem;
-  background: #1a1a1a;
-  border-radius: 4px;
-  border: 1px solid #554400;
-}
-
-.star-settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-  color: #ffcc32;
-  font-weight: bold;
-  margin-bottom: 0.25rem;
-}
-
-.star-color-preview-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: #aaa;
-  font-family: monospace;
-  margin-bottom: 0.25rem;
-}
-
-.star-color-swatch {
-  width: 1.2rem;
-  height: 1.2rem;
-  border-radius: 3px;
-  border: 1px solid #666;
-  flex-shrink: 0;
-}
-
-.star-setting-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.star-setting-row label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: #aaa;
-  font-family: monospace;
-}
-
-.star-setting-row label span {
-  color: #ffcc32;
-}
-
-.star-setting-row input[type='range'] {
-  width: 100%;
-  accent-color: #ffcc32;
-  cursor: pointer;
-}
-
-.star-histogram-row label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.8rem;
-  color: #aaa;
-  font-family: monospace;
-  cursor: pointer;
-}
-
-.star-histogram-row input[type='checkbox'] {
-  accent-color: #ffcc32;
-}
-
-.star-finder-toggle {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.star-finder-active {
-  background: #554400;
-  color: #ffcc32;
-  border: 1px solid #ffcc32;
-}
-
-.preproc-settings-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.6rem;
-  background: #1a1a1a;
-  border-radius: 4px;
-  border: 1px solid #554400;
-}
-
-.preproc-settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-  color: #ffcc32;
-  font-weight: bold;
-  margin-bottom: 0.25rem;
-}
-
-.preproc-bool-row label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  color: #aaa;
-  font-family: monospace;
-  cursor: pointer;
-}
-
-.preproc-bool-row input[type='checkbox'] {
-  accent-color: #ffcc32;
-}
-
-.preproc-slider-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.preproc-slider-row label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.75rem;
-  color: #aaa;
-  font-family: monospace;
-}
-
-.preproc-slider-row label span {
-  color: #ffcc32;
-}
-
-.preproc-slider-row input[type='range'] {
-  width: 100%;
-  accent-color: #ffcc32;
-  cursor: pointer;
-}
-</style>

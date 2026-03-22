@@ -1,121 +1,181 @@
+@reference "./theme.css";
+
 .btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s;
+  @apply px-4 py-2 border-0 rounded text-sm cursor-pointer transition-all duration-200;
 }
 
 .btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  @apply opacity-50 cursor-not-allowed;
 }
 
 .btn-primary {
-  background: #00ff00;
-  color: #000;
+  @apply bg-neon-green text-black;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #00dd00;
+  @apply bg-neon-green-hover;
 }
 
 .btn-secondary {
-  background: #444;
-  color: #fff;
+  @apply bg-dark-600 text-white;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #555;
+  @apply bg-dark-500;
 }
 
 .btn-danger {
-  background: #ff4444;
-  color: #fff;
+  @apply bg-red-500 text-white;
 }
 
 .btn-danger:hover {
-  background: #ff2222;
+  @apply bg-red-600;
 }
 
 .btn-small {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8rem;
+  @apply px-2 py-1 text-xs;
 }
 
 .checkbox-control label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #fff;
-  cursor: pointer;
-  margin-bottom: 0.5rem;
+  @apply flex items-center gap-2 text-white cursor-pointer mb-2;
 }
 
 .checkbox-control input[type='checkbox'] {
-  width: 1rem;
-  height: 1rem;
+  @apply w-4 h-4;
 }
 
 .checkbox-control small {
-  display: block;
-  color: #888;
-  font-size: 0.8rem;
+  @apply block text-gray-mid text-xs;
 }
 
 .select-control {
-  margin-top: 1rem;
+  @apply mt-4;
 }
 
 .select-control label {
-  display: block;
-  color: #fff;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
+  @apply block text-white text-sm mb-2;
 }
 
 .select-control select {
-  width: 100%;
-  padding: 0.5rem;
-  background: #2a2a2a;
-  color: #fff;
-  border: 1px solid #444;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  margin-bottom: 0.25rem;
+  @apply w-full px-2 py-2 bg-dark-800 text-white border border-dark-600 rounded text-sm cursor-pointer mb-1;
 }
 
 .select-control select:hover {
-  border-color: #666;
+  @apply border-dark-500;
 }
 
 .select-control select:focus {
-  outline: none;
-  border-color: #00ff00;
+  @apply outline-none border-neon-green;
 }
 
 .select-control small {
-  display: block;
-  color: #888;
-  font-size: 0.8rem;
+  @apply block text-gray-mid text-xs;
 }
 
 .control-section {
-  background: #2a2a2a;
-  padding: 1rem;
-  border-radius: 8px;
+  @apply bg-dark-800 p-4 rounded-lg;
 }
 
 .control-section h2 {
-  margin: 0 0 1rem 0;
-  font-size: 1rem;
-  color: #fff;
+  @apply mt-0 mb-4 text-base text-white;
 }
 
 .button-group {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  @apply flex gap-2 flex-wrap;
+}
+
+/* Shared debug view sidebar */
+.fixture-sidebar {
+  @apply w-[260px] flex flex-col border-r border-dark-700 overflow-hidden shrink-0;
+}
+
+.fixture-sidebar-header {
+  @apply p-2 border-b border-dark-700 flex items-center gap-2;
+}
+
+.fixture-list {
+  @apply flex-1 overflow-y-auto;
+}
+
+.fixture-item {
+  @apply flex items-center gap-2 px-2 py-1.5 cursor-pointer text-sm border-b border-dark-700 hover:bg-dark-800;
+}
+
+.fixture-item.selected {
+  @apply bg-dark-700;
+}
+
+.fixture-item-name {
+  @apply flex-1 truncate;
+}
+
+/* Shared screen type badges */
+.screen-badge {
+  @apply text-xs px-1 py-0.5 rounded font-mono shrink-0;
+}
+
+.badge-char {
+  @apply bg-blue-900 text-blue-200;
+}
+
+.badge-inv {
+  @apply bg-green-900 text-green-200;
+}
+
+.badge-rewards {
+  @apply bg-purple-900 text-purple-200;
+}
+
+.badge-unknown {
+  @apply bg-dark-700 text-gray-400;
+}
+
+.badge-ok {
+  @apply bg-green-900 text-green-300;
+}
+
+.badge-err {
+  @apply bg-red-900 text-red-300;
+}
+
+/* Shared debug view layout */
+.debug-editor-main {
+  @apply flex-1 flex overflow-hidden;
+}
+
+.debug-image-area {
+  @apply flex-1 flex flex-col overflow-hidden;
+}
+
+.debug-image-container {
+  @apply relative inline-block;
+}
+
+.debug-region-overlay {
+  @apply absolute inset-0 pointer-events-none;
+}
+
+.debug-footer {
+  @apply border-t border-dark-700 p-2 flex flex-col gap-1 shrink-0;
+}
+
+.debug-footer-row {
+  @apply flex items-center gap-2 flex-wrap text-sm;
+}
+
+.debug-empty-state {
+  @apply flex-1 flex items-center justify-center text-gray-mid;
+}
+
+/* Source badges */
+.source-fixture {
+  @apply bg-blue-900 text-blue-200;
+}
+
+.source-template {
+  @apply bg-dark-700 text-gray-400;
+}
+
+.source-none {
+  @apply bg-red-900 text-red-400;
 }

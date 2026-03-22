@@ -40,8 +40,8 @@ const settingsStore = useSettingsStore()
       </button>
     </div>
 
-    <div v-if="isContinuous" class="capture-rate-control">
-      <label>Capture Rate: {{ settingsStore.captureSettings.captureRate }} FPS</label>
+    <div v-if="isContinuous" class="mt-4">
+      <label class="block text-white text-sm mb-2">Capture Rate: {{ settingsStore.captureSettings.captureRate }} FPS</label>
       <div class="button-group">
         <button
           class="btn btn-small"
@@ -62,15 +62,3 @@ const settingsStore = useSettingsStore()
   </section>
 </template>
 
-<style scoped>
-.capture-rate-control {
-  margin-top: 1rem;
-}
-
-.capture-rate-control label {
-  display: block;
-  color: #fff;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-}
-</style>

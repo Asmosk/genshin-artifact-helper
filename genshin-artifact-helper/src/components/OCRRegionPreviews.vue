@@ -63,133 +63,31 @@ function confidenceColor(confidence: number): string {
 </script>
 
 <template>
-  <div class="region-previews">
-    <div class="region-previews-header">
-      <span class="region-previews-title">OCR Region Previews</span>
-      <span class="region-previews-count">{{ regions.length }} regions</span>
+  <div class="mt-2 pt-2 border-t border-slate-700">
+    <div class="flex items-center gap-2 mb-1.5">
+      <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">OCR Region Previews</span>
+      <span class="text-[0.7rem] text-slate-600">{{ regions.length }} regions</span>
     </div>
-    <div class="region-cards-scroll">
-      <div v-for="region in regions" :key="region.regionName" class="region-card">
-        <div class="region-canvas-wrapper">
+    <div class="flex gap-2 overflow-x-auto pb-1.5 [scrollbar-width:thin] [scrollbar-color:#334155_transparent]">
+      <div v-for="region in regions" :key="region.regionName" class="shrink-0 bg-slate-950 border border-slate-800 rounded-md p-1.5 min-w-[110px] max-w-[210px] flex flex-col gap-1">
+        <div class="flex items-center justify-center bg-black rounded-sm min-h-9 overflow-hidden">
           <canvas
             :ref="(el) => setCanvasRef(region.regionName, el as HTMLCanvasElement | null)"
-            class="region-canvas"
+            class="block max-w-full [image-rendering:pixelated]"
           />
-          <span v-if="!region.preprocessedCanvas" class="region-canvas-empty">No preview</span>
+          <span v-if="!region.preprocessedCanvas" class="text-[0.65rem] text-slate-600">No preview</span>
         </div>
-        <div class="region-card-info">
-          <span class="region-name">{{ formatRegionName(region.regionName) }}</span>
+        <div class="flex justify-between items-center gap-1">
+          <span class="text-[0.65rem] text-slate-400 font-semibold truncate">{{ formatRegionName(region.regionName) }}</span>
           <span
-            class="region-confidence"
+            class="text-[0.65rem] font-bold shrink-0"
             :style="{ color: confidenceColor(region.confidence) }"
           >{{ Math.round(region.confidence * 100) }}%</span>
         </div>
-        <div class="region-text" :title="region.text">
+        <div class="text-[0.7rem] text-slate-300 truncate max-w-full" :title="region.text">
           {{ region.text || '—' }}
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.region-previews {
-  margin-top: 8px;
-  border-top: 1px solid #334155;
-  padding-top: 8px;
-}
-
-.region-previews-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.region-previews-title {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.region-previews-count {
-  font-size: 0.7rem;
-  color: #475569;
-}
-
-.region-cards-scroll {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: #334155 transparent;
-}
-
-.region-card {
-  flex: 0 0 auto;
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 6px;
-  padding: 6px;
-  min-width: 110px;
-  max-width: 210px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.region-canvas-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #000;
-  border-radius: 3px;
-  min-height: 36px;
-  overflow: hidden;
-}
-
-.region-canvas {
-  display: block;
-  max-width: 100%;
-  image-rendering: pixelated;
-}
-
-.region-canvas-empty {
-  font-size: 0.65rem;
-  color: #475569;
-}
-
-.region-card-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 4px;
-}
-
-.region-name {
-  font-size: 0.65rem;
-  color: #94a3b8;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.region-confidence {
-  font-size: 0.65rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.region-text {
-  font-size: 0.7rem;
-  color: #cbd5e1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-</style>

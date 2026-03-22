@@ -76,89 +76,95 @@ const showRawText = computed({
 </script>
 
 <template>
-  <div class="ocr-results">
-    <div v-if="!hasResult" class="no-results">
+  <div class="bg-slate-800 rounded-lg p-6 text-slate-200">
+    <div v-if="!hasResult" class="text-center p-8 text-slate-400">
       <p>No OCR results yet. Capture and process an image to see artifact data.</p>
     </div>
 
-    <div v-else class="results-container">
+    <div v-else class="flex flex-col gap-6">
       <!-- Header with confidence -->
-      <div class="results-header">
-        <h3>OCR Results</h3>
-        <div class="confidence-badge" :style="{ backgroundColor: confidenceColor }">
+      <div class="flex items-center gap-4 pb-4 border-b border-slate-700">
+        <h3 class="m-0 text-xl flex-1">OCR Results</h3>
+        <div
+          class="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold text-slate-900"
+          :style="{ backgroundColor: confidenceColor }"
+        >
           <span>{{ confidenceText }} Confidence</span>
-          <span class="confidence-value">{{ (confidence * 100).toFixed(0) }}%</span>
+          <span class="text-base">{{ (confidence * 100).toFixed(0) }}%</span>
         </div>
-        <div class="processing-time">
+        <div class="text-sm text-slate-400">
           <span>Processed in {{ (ocrStore.processingTime / 1000).toFixed(2) }}s</span>
         </div>
       </div>
 
       <!-- Errors and warnings -->
-      <div v-if="errors.length > 0" class="errors-section">
-        <h4>⚠️ Warnings</h4>
-        <ul>
-          <li v-for="(error, index) in errors" :key="index">{{ error }}</li>
+      <div v-if="errors.length > 0" class="bg-red-950 border border-red-600 rounded-md p-4">
+        <h4 class="mt-0 mb-2 text-base text-red-300">⚠️ Warnings</h4>
+        <ul class="m-0 pl-6 text-red-200">
+          <li v-for="(error, index) in errors" :key="index" class="mb-1">{{ error }}</li>
         </ul>
       </div>
 
       <!-- Parsed artifact data -->
-      <div class="artifact-data">
-        <h4>Parsed Artifact</h4>
+      <div>
+        <h4 class="mt-0 mb-4 text-base text-slate-300">Parsed Artifact</h4>
 
-        <div class="artifact-grid">
+        <div class="grid gap-3">
           <!-- Basic info -->
-          <div class="info-row">
-            <span class="label">Set:</span>
-            <span class="value">{{ artifact?.set || 'Unknown' }}</span>
+          <div class="flex justify-between py-2 border-b border-slate-700">
+            <span class="font-semibold text-slate-400">Set:</span>
+            <span class="text-slate-200">{{ artifact?.set || 'Unknown' }}</span>
           </div>
-          <div class="info-row">
-            <span class="label">Slot:</span>
-            <span class="value">{{ artifact?.slot || 'Unknown' }}</span>
+          <div class="flex justify-between py-2 border-b border-slate-700">
+            <span class="font-semibold text-slate-400">Slot:</span>
+            <span class="text-slate-200">{{ artifact?.slot || 'Unknown' }}</span>
           </div>
-          <div class="info-row">
-            <span class="label">Rarity:</span>
-            <span class="value">{{ artifact?.rarity ? '★'.repeat(artifact.rarity) : 'Unknown' }}</span>
+          <div class="flex justify-between py-2 border-b border-slate-700">
+            <span class="font-semibold text-slate-400">Rarity:</span>
+            <span class="text-slate-200">{{ artifact?.rarity ? '★'.repeat(artifact.rarity) : 'Unknown' }}</span>
           </div>
-          <div class="info-row">
-            <span class="label">Level:</span>
-            <span class="value">+{{ artifact?.level ?? '?' }}</span>
+          <div class="flex justify-between py-2 border-b border-slate-700">
+            <span class="font-semibold text-slate-400">Level:</span>
+            <span class="text-slate-200">+{{ artifact?.level ?? '?' }}</span>
           </div>
 
           <!-- Main stat -->
-          <div v-if="artifact?.mainStat" class="main-stat">
-            <span class="label">Main Stat:</span>
-            <div class="stat-value">
-              <span class="stat-type" :style="{ color: getStatColor(artifact.mainStat.type) }">
+          <div v-if="artifact?.mainStat" class="p-3 bg-slate-950 rounded-md border-l-[3px] border-blue-500">
+            <span class="block font-semibold text-slate-400 mb-2">Main Stat:</span>
+            <div class="flex justify-between items-center">
+              <span class="font-semibold" :style="{ color: getStatColor(artifact.mainStat.type) }">
                 {{ artifact.mainStat.type }}
               </span>
-              <span class="stat-number">
+              <span class="text-lg font-bold">
                 {{ formatStatValue(artifact.mainStat.type, artifact.mainStat.value) }}
               </span>
             </div>
           </div>
 
           <!-- Substats -->
-          <div v-if="artifact?.substats && artifact.substats.length > 0" class="substats">
-            <span class="label">Substats:</span>
-            <div class="substats-list">
+          <div v-if="artifact?.substats && artifact.substats.length > 0" class="p-3 bg-slate-950 rounded-md border-l-[3px] border-violet-500">
+            <span class="block font-semibold text-slate-400 mb-2">Substats:</span>
+            <div class="grid gap-2">
               <div
                 v-for="(substat, index) in artifact.substats"
                 :key="index"
-                class="substat-item"
-                :class="{ 'substat-item--unactivated': substat.unactivated }"
+                class="flex items-center gap-2 py-1.5 px-2 bg-slate-800 rounded"
+                :class="{ 'opacity-50': substat.unactivated }"
               >
-                <span v-if="substat.rollCount !== undefined" class="roll-badge">{{ substat.rollCount }}</span>
-                <span class="stat-type" :style="{ color: getStatColor(substat.type) }">
+                <span
+                  v-if="substat.rollCount !== undefined"
+                  class="text-xs font-bold text-amber-400 bg-amber-400/15 rounded-full w-[1.4rem] h-[1.4rem] flex items-center justify-center shrink-0"
+                >{{ substat.rollCount }}</span>
+                <span class="font-semibold" :style="{ color: getStatColor(substat.type) }">
                   {{ substat.type }}
                 </span>
-                <span v-if="substat.unactivated" class="unactivated-badge">(unactivated)</span>
-                <span class="stat-number">
+                <span v-if="substat.unactivated" class="text-[0.7rem] text-slate-500 italic">(unactivated)</span>
+                <span class="text-lg font-bold ml-auto">
                   +{{ formatStatValue(substat.type, substat.value) }}
                 </span>
               </div>
             </div>
-            <div v-if="artifact?.substats && artifact.substats.length > 0" class="total-rolls">
+            <div v-if="artifact?.substats && artifact.substats.length > 0" class="mt-2 text-sm text-slate-400 text-right">
               Total rolls: {{ totalRolls }}{{ maxRolls !== undefined ? ` / ${maxRolls}` : '' }}
             </div>
           </div>
@@ -166,284 +172,26 @@ const showRawText = computed({
       </div>
 
       <!-- Raw OCR text (collapsible) -->
-      <details class="raw-text-section">
-        <summary>Show Raw OCR Text</summary>
-        <pre class="raw-text">{{ rawText }}</pre>
+      <details class="border border-slate-700 rounded-md p-3">
+        <summary class="cursor-pointer font-semibold text-slate-400 select-none hover:text-slate-300">Show Raw OCR Text</summary>
+        <pre class="mt-3 p-3 bg-slate-950 rounded text-sm text-slate-400 overflow-x-auto whitespace-pre-wrap break-words font-['Courier_New',monospace]">{{ rawText }}</pre>
       </details>
 
       <!-- Actions -->
-      <div class="actions">
-        <button @click="handleAccept" class="btn btn-primary">
+      <div class="flex gap-4 pt-4 border-t border-slate-700">
+        <button
+          class="flex-1 py-3 px-6 border-0 rounded-md text-base font-semibold cursor-pointer transition-all duration-200 bg-blue-500 text-white hover:bg-blue-600"
+          @click="handleAccept"
+        >
           ✓ Accept & Score
         </button>
-        <button @click="handleReject" class="btn btn-secondary">
+        <button
+          class="flex-1 py-3 px-6 border-0 rounded-md text-base font-semibold cursor-pointer transition-all duration-200 bg-slate-600 text-slate-200 hover:bg-slate-500"
+          @click="handleReject"
+        >
           ✗ Reject
         </button>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.ocr-results {
-  background: #1e293b;
-  border-radius: 8px;
-  padding: 1.5rem;
-  color: #e2e8f0;
-}
-
-.no-results {
-  text-align: center;
-  padding: 2rem;
-  color: #94a3b8;
-}
-
-.results-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.results-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #334155;
-}
-
-.results-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  flex: 1;
-}
-
-.confidence-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.confidence-value {
-  font-size: 1rem;
-}
-
-.processing-time {
-  font-size: 0.875rem;
-  color: #94a3b8;
-}
-
-.errors-section {
-  background: #7f1d1d;
-  border: 1px solid #dc2626;
-  border-radius: 6px;
-  padding: 1rem;
-}
-
-.errors-section h4 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-  color: #fca5a5;
-}
-
-.errors-section ul {
-  margin: 0;
-  padding-left: 1.5rem;
-  color: #fecaca;
-}
-
-.errors-section li {
-  margin-bottom: 0.25rem;
-}
-
-.artifact-data h4 {
-  margin: 0 0 1rem 0;
-  font-size: 1rem;
-  color: #cbd5e1;
-}
-
-.artifact-grid {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #334155;
-}
-
-.label {
-  font-weight: 600;
-  color: #94a3b8;
-}
-
-.value {
-  color: #e2e8f0;
-}
-
-.main-stat {
-  padding: 0.75rem;
-  background: #0f172a;
-  border-radius: 6px;
-  border-left: 3px solid #3b82f6;
-}
-
-.main-stat .label {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-.stat-value {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.stat-type {
-  font-weight: 600;
-}
-
-.stat-number {
-  font-size: 1.125rem;
-  font-weight: 700;
-}
-
-.substats {
-  padding: 0.75rem;
-  background: #0f172a;
-  border-radius: 6px;
-  border-left: 3px solid #8b5cf6;
-}
-
-.substats .label {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-.substats-list {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.substat-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem;
-  background: #1e293b;
-  border-radius: 4px;
-}
-
-.substat-item .stat-number {
-  margin-left: auto;
-}
-
-.substat-item--unactivated {
-  opacity: 0.5;
-}
-
-.unactivated-badge {
-  font-size: 0.7rem;
-  color: #64748b;
-  font-style: italic;
-}
-
-.roll-badge {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.15);
-  border-radius: 50%;
-  width: 1.4rem;
-  height: 1.4rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.total-rolls {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-  color: #94a3b8;
-  text-align: right;
-}
-
-.raw-text-section {
-  border: 1px solid #334155;
-  border-radius: 6px;
-  padding: 0.75rem;
-}
-
-.raw-text-section summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: #94a3b8;
-  user-select: none;
-}
-
-.raw-text-section summary:hover {
-  color: #cbd5e1;
-}
-
-.raw-text {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  background: #0f172a;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  font-size: 0.875rem;
-  color: #94a3b8;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.actions {
-  display: flex;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #334155;
-}
-
-.btn {
-  flex: 1;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #2563eb;
-}
-
-.btn-secondary {
-  background: #475569;
-  color: #e2e8f0;
-}
-
-.btn-secondary:hover {
-  background: #64748b;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-</style>

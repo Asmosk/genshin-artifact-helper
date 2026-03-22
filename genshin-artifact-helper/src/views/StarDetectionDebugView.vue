@@ -316,52 +316,48 @@ onMounted(loadFixtures)
 </script>
 
 <template>
-  <div class="star-debug">
+  <div class="flex h-screen font-mono text-[13px] bg-dark-900 text-[#e0e0e0]">
     <!-- ── Sidebar ── -->
-    <aside class="fixture-list">
-      <h2>Fixtures</h2>
-      <ul>
+    <aside class="w-[260px] shrink-0 overflow-y-auto border-r border-dark-700 py-2">
+      <h2 class="text-[11px] uppercase tracking-widest text-gray-mid px-3 pt-1 pb-2 m-0">Fixtures</h2>
+      <ul class="list-none m-0 p-0">
         <li
           v-for="fixture in fixtures"
           :key="fixture.name"
-          :class="{ selected: fixture.name === selectedName, 'no-coords': !fixture.hasStarCoords }"
+          class="flex items-center justify-between px-3 py-1.5 cursor-pointer gap-1.5 border-l-[3px] border-transparent hover:bg-dark-800"
+          :class="{ 'bg-[#1e3a5f] border-l-[#4a9eff]': fixture.name === selectedName }"
           @click="selectFixture(fixture.name)"
         >
-          <span class="fixture-name">{{ fixture.name }}</span>
-          <span class="fixture-indicators">
-            <span
-              v-if="fixture.screen"
-              class="screen-badge"
-              :class="screenBadgeClass(fixture.screen)"
-            >{{ fixture.screen }}</span>
+          <span class="truncate flex-1 min-w-0" :class="{ 'text-[#f5a623]': !fixture.hasStarCoords }">{{ fixture.name }}</span>
+          <span class="flex items-center gap-1 shrink-0">
+            <span v-if="fixture.screen" class="screen-badge" :class="screenBadgeClass(fixture.screen)">{{ fixture.screen }}</span>
             <span v-else class="screen-badge badge-unknown">?</span>
-            <span
-              class="star-indicator"
-              :title="fixture.hasStarCoords ? 'Has starCoords' : 'Missing starCoords'"
-            >{{ fixture.hasStarCoords ? '★' : '✗' }}</span>
+            <span class="text-[11px]" :class="fixture.hasStarCoords ? 'text-dark-500' : 'text-[#f5a623]'" :title="fixture.hasStarCoords ? 'Has starCoords' : 'Missing starCoords'">{{ fixture.hasStarCoords ? '★' : '✗' }}</span>
           </span>
         </li>
       </ul>
     </aside>
 
     <!-- ── Main area ── -->
-    <main class="editor-main">
-      <div v-if="!selectedName" class="empty-state">Select a fixture from the list</div>
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <div v-if="!selectedName" class="flex-1 flex items-center justify-center text-dark-500">Select a fixture from the list</div>
 
       <template v-else>
-        <div class="image-wrap">
-          <div class="image-container">
+        <div class="flex-1 overflow-auto p-4">
+          <div class="relative inline-block select-none">
             <img
               ref="imgRef"
               :src="`/fixtures/${encodeURIComponent(selectedName)}.png`"
               :alt="selectedName"
+              class="block max-w-full pointer-events-none"
+              style="max-height: calc(100vh - 130px)"
               draggable="false"
               @load="onImageLoad"
             />
 
             <svg
               v-if="imgLoaded"
-              class="region-overlay"
+              class="absolute inset-0 w-full h-full pointer-events-none"
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -491,57 +487,48 @@ onMounted(loadFixtures)
         </div>
 
         <!-- ── Footer ── -->
-        <footer class="debug-footer">
-          <!-- Bounds info -->
-          <div v-if="searchBounds" class="footer-row">
-            <span class="label">Layout:</span>
-            <span class="value">{{ searchBounds.layoutId }}</span>
-            <span class="sep">│</span>
-            <span class="label">starSearchBounds:</span>
-            <span class="value mono">
+        <footer class="border-t border-dark-700 bg-dark-900 shrink-0 px-4 py-2.5 flex flex-col gap-1.5">
+          <div v-if="searchBounds" class="flex items-center gap-2 text-xs flex-wrap">
+            <span class="text-gray-mid">Layout:</span>
+            <span class="text-[#e0e0e0]">{{ searchBounds.layoutId }}</span>
+            <span class="text-dark-600">│</span>
+            <span class="text-gray-mid">starSearchBounds:</span>
+            <span class="text-[#e0e0e0] tracking-[0.03em]">
               x {{ (searchBounds.raw.xMin * 100).toFixed(0) }}–{{ (searchBounds.raw.xMax * 100).toFixed(0) }}%
               &nbsp; y {{ (searchBounds.raw.yMin * 100).toFixed(0) }}–{{ (searchBounds.raw.yMax * 100).toFixed(0) }}%
             </span>
           </div>
-          <div v-else class="footer-row muted">
+          <div v-else class="flex items-center gap-2 text-xs text-dark-500">
             No starSearchBounds — screen type
-            <span class="screen-badge badge-unknown" style="margin-left:4px">
-              {{ fixtureData?.expected?.screen ?? '?' }}
-            </span>
+            <span class="screen-badge badge-unknown ml-1">{{ fixtureData?.expected?.screen ?? '?' }}</span>
             has no layout
           </div>
 
-          <!-- starCoords info -->
-          <div class="footer-row">
+          <div class="flex items-center gap-2 text-xs flex-wrap">
             <template v-if="starPct">
-              <span class="label">expected:</span>
-              <span class="value mono">px {{ starPct.px.x }}, {{ starPct.px.y }}</span>
-              <span class="value muted">({{ starPct.pctLabel }})</span>
-              <span class="sep">│</span>
-              <span
-                class="bounds-badge"
-                :class="withinBounds ? 'bounds-ok' : 'bounds-fail'"
-              >
+              <span class="text-gray-mid">expected:</span>
+              <span class="text-[#e0e0e0] tracking-[0.03em]">px {{ starPct.px.x }}, {{ starPct.px.y }}</span>
+              <span class="text-dark-500">({{ starPct.pctLabel }})</span>
+              <span class="text-dark-600">│</span>
+              <span class="text-[11px] px-2 py-0.5 rounded-full font-bold" :class="withinBounds ? 'bg-[#1a3a1a] text-green-500 border border-green-500/30' : 'bg-[#3a1a1a] text-red-500 border border-red-500/30'">
                 {{ withinBounds ? '✓ within bounds' : '✗ outside bounds' }}
               </span>
             </template>
-            <span v-else class="muted">no starCoords in fixture</span>
+            <span v-else class="text-dark-500">no starCoords in fixture</span>
           </div>
 
-          <!-- Detection result -->
-          <div class="footer-row">
+          <div class="flex items-center gap-2 text-xs flex-wrap">
             <template v-if="debugResult">
               <template v-if="detectedCenterSvg">
-                <span class="label">detected:</span>
-                <span class="value mono detected-count">{{ detectedCenterSvg.count }}★</span>
-                <span class="value mono">px {{ detectedCenterSvg.px.x }}, {{ detectedCenterSvg.px.y }}</span>
-                <span class="sep">│</span>
-                <span
-                  class="bounds-badge"
+                <span class="text-gray-mid">detected:</span>
+                <span class="text-[#e879f9] tracking-[0.03em]">{{ detectedCenterSvg.count }}★</span>
+                <span class="text-[#e0e0e0] tracking-[0.03em]">px {{ detectedCenterSvg.px.x }}, {{ detectedCenterSvg.px.y }}</span>
+                <span class="text-dark-600">│</span>
+                <span class="text-[11px] px-2 py-0.5 rounded-full font-bold"
                   :class="{
-                    'bounds-ok': detectionMatch?.status === 'ok',
-                    'bounds-warn': detectionMatch?.status === 'pos-mismatch',
-                    'bounds-fail': detectionMatch?.status === 'count-mismatch',
+                    'bg-[#1a3a1a] text-green-500 border border-green-500/30': detectionMatch?.status === 'ok',
+                    'bg-[#3a2a00] text-orange-400 border border-orange-400/30': detectionMatch?.status === 'pos-mismatch',
+                    'bg-[#3a1a1a] text-red-500 border border-red-500/30': detectionMatch?.status === 'count-mismatch',
                   }"
                 >
                   <template v-if="detectionMatch?.status === 'ok'">✓ match</template>
@@ -550,39 +537,23 @@ onMounted(loadFixtures)
                 </span>
               </template>
               <template v-else>
-                <span class="label">detected:</span>
-                <span class="bounds-badge bounds-fail">✗ no detection</span>
+                <span class="text-gray-mid">detected:</span>
+                <span class="text-[11px] px-2 py-0.5 rounded-full font-bold bg-[#3a1a1a] text-red-500 border border-red-500/30">✗ no detection</span>
                 <template v-if="detectionFailureInfo">
-                  <span class="sep">│</span>
-                  <span class="failure-stage">stage {{ detectionFailureInfo.stage }}/7</span>
-                  <span class="failure-label bounds-badge bounds-warn">{{ detectionFailureInfo.label }}</span>
-                  <span class="sep">│</span>
-                  <span class="muted failure-reason">{{ detectionFailureInfo.reason }}</span>
+                  <span class="text-dark-600">│</span>
+                  <span class="text-[11px] text-gray-mid whitespace-nowrap">stage {{ detectionFailureInfo.stage }}/7</span>
+                  <span class="text-[11px] px-2 py-0.5 rounded-full font-bold bg-[#3a2a00] text-orange-400 border border-orange-400/30 whitespace-nowrap">{{ detectionFailureInfo.label }}</span>
+                  <span class="text-dark-600">│</span>
+                  <span class="text-[11px] text-dark-500">{{ detectionFailureInfo.reason }}</span>
                 </template>
               </template>
             </template>
-            <span v-else class="muted">detection pending…</span>
+            <span v-else class="text-dark-500">detection pending…</span>
           </div>
 
-          <!-- Legend -->
-          <div v-if="debugResult" class="footer-row legend-row">
-            <span class="legend-item">
-              <span class="legend-swatch" style="background:#4ade80"></span>validated
-            </span>
-            <span class="legend-item">
-              <span class="legend-swatch" style="background:#fb923c"></span>Y-confirmed
-            </span>
-            <span class="legend-item">
-              <span class="legend-swatch" style="background:#6b7280"></span>col blob
-            </span>
-            <span class="legend-item">
-              <span class="legend-swatch" style="background:#93c5fd"></span>row band
-            </span>
-            <span class="legend-item">
-              <span class="legend-swatch" style="background:#fbbf24"></span>peakY
-            </span>
-            <span class="legend-item">
-              <span class="legend-swatch" style="background:#e879f9"></span>detected
+          <div v-if="debugResult" class="flex items-center gap-3 text-[11px] text-gray-mid pt-0.5 border-t border-dark-800">
+            <span v-for="[color, label] in [['#4ade80','validated'],['#fb923c','Y-confirmed'],['#6b7280','col blob'],['#93c5fd','row band'],['#fbbf24','peakY'],['#e879f9','detected']] as const" :key="label" class="flex items-center gap-1">
+              <span class="w-2.5 h-2.5 rounded-sm shrink-0 opacity-85" :style="{ background: color }" />{{ label }}
             </span>
           </div>
         </footer>
@@ -590,269 +561,3 @@ onMounted(loadFixtures)
     </main>
   </div>
 </template>
-
-<style scoped>
-.star-debug {
-  display: flex;
-  height: 100vh;
-  font-family: monospace;
-  font-size: 13px;
-  background: #1a1a1a;
-  color: #e0e0e0;
-}
-
-/* ── Sidebar ── */
-.fixture-list {
-  width: 260px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  border-right: 1px solid #333;
-  padding: 8px 0;
-}
-
-.fixture-list h2 {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #888;
-  padding: 4px 12px 8px;
-  margin: 0;
-}
-
-.fixture-list ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.fixture-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 12px;
-  cursor: pointer;
-  gap: 6px;
-  border-left: 3px solid transparent;
-}
-
-.fixture-list li:hover {
-  background: #2a2a2a;
-}
-
-.fixture-list li.selected {
-  background: #1e3a5f;
-  border-left-color: #4a9eff;
-}
-
-.fixture-list li.no-coords .fixture-name {
-  color: #f5a623;
-}
-
-.fixture-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.fixture-indicators {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.star-indicator {
-  font-size: 11px;
-  color: #666;
-}
-
-.fixture-list li.no-coords .star-indicator {
-  color: #f5a623;
-}
-
-/* ── Screen type badges ── */
-.screen-badge {
-  flex-shrink: 0;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.badge-char {
-  background: #3a2a00;
-  color: #dbba7d;
-  border: 1px solid #dbba7d55;
-}
-
-.badge-inv {
-  background: #001a3a;
-  color: #60a5fa;
-  border: 1px solid #60a5fa55;
-}
-
-.badge-rewards {
-  background: #2a1a4a;
-  color: #a78bfa;
-  border: 1px solid #a78bfa55;
-}
-
-.badge-unknown {
-  background: #2a2a2a;
-  color: #666;
-  border: 1px solid #44444455;
-}
-
-/* ── Main area ── */
-.editor-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #555;
-}
-
-.image-wrap {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
-}
-
-.image-container {
-  position: relative;
-  display: inline-block;
-  user-select: none;
-}
-
-.image-container img {
-  display: block;
-  max-width: 100%;
-  max-height: calc(100vh - 130px);
-  pointer-events: none;
-}
-
-.region-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-/* ── Footer ── */
-.debug-footer {
-  border-top: 1px solid #333;
-  background: #1a1a1a;
-  flex-shrink: 0;
-  padding: 10px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.footer-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  flex-wrap: wrap;
-}
-
-.label {
-  color: #888;
-}
-
-.value {
-  color: #e0e0e0;
-}
-
-.mono {
-  letter-spacing: 0.03em;
-}
-
-.sep {
-  color: #444;
-}
-
-.muted {
-  color: #555;
-}
-
-.detected-count {
-  color: #e879f9;
-}
-
-.failure-stage {
-  font-size: 11px;
-  color: #888;
-  white-space: nowrap;
-}
-
-.failure-label {
-  white-space: nowrap;
-}
-
-.failure-reason {
-  font-size: 11px;
-}
-
-.bounds-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: bold;
-}
-
-.bounds-ok {
-  background: #1a3a1a;
-  color: #4caf50;
-  border: 1px solid #4caf5055;
-}
-
-.bounds-warn {
-  background: #3a2a00;
-  color: #fb923c;
-  border: 1px solid #fb923c55;
-}
-
-.bounds-fail {
-  background: #3a1a1a;
-  color: #f44336;
-  border: 1px solid #f4433655;
-}
-
-/* ── Legend ── */
-.legend-row {
-  padding-top: 2px;
-  border-top: 1px solid #2a2a2a;
-  gap: 12px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #888;
-}
-
-.legend-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-</style>

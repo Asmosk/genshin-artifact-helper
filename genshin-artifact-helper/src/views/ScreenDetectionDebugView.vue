@@ -228,61 +228,64 @@ onMounted(loadFixtures)
 </script>
 
 <template>
-  <div class="screen-debug">
+  <div class="flex h-screen font-mono text-[13px] bg-dark-900 text-[#e0e0e0]">
     <!-- ── Sidebar ── -->
-    <aside class="fixture-list">
-      <h2>Fixtures</h2>
-      <ul>
+    <aside class="w-[260px] shrink-0 overflow-y-auto border-r border-dark-700 py-2">
+      <h2 class="text-[11px] uppercase tracking-widest text-gray-mid px-3 pt-1 pb-2 m-0">Fixtures</h2>
+      <ul class="list-none m-0 p-0">
         <li
           v-for="fixture in fixtures"
           :key="fixture.name"
-          :class="{ selected: fixture.name === selectedName }"
+          class="flex items-center justify-between px-3 py-1.5 cursor-pointer gap-1.5 border-l-[3px] border-transparent hover:bg-dark-800"
+          :class="{ 'bg-[#1e3a5f] border-l-[#4a9eff]': fixture.name === selectedName }"
           @click="selectFixture(fixture.name)"
         >
-          <span class="fixture-name">{{ fixture.name }}</span>
-          <span
-            v-if="fixture.screen"
-            class="screen-badge"
-            :class="screenBadgeClass(fixture.screen)"
-          >{{ fixture.screen }}</span>
+          <span class="truncate flex-1 min-w-0">{{ fixture.name }}</span>
+          <span v-if="fixture.screen" class="screen-badge" :class="screenBadgeClass(fixture.screen)">{{ fixture.screen }}</span>
           <span v-else class="screen-badge badge-unknown">?</span>
         </li>
       </ul>
     </aside>
 
     <!-- ── Main area ── -->
-    <main class="editor-main">
-      <div v-if="!selectedName" class="empty-state">Select a fixture from the list</div>
+    <main class="flex-1 flex flex-col overflow-hidden">
+      <div v-if="!selectedName" class="flex-1 flex items-center justify-center text-dark-500">Select a fixture from the list</div>
 
       <template v-else>
         <!-- Toggle controls -->
-        <div class="controls">
-          <span class="controls-label">Show regions:</span>
+        <div class="flex items-center gap-2 px-4 py-2 border-b border-dark-700 shrink-0">
+          <span class="text-gray-mid text-[11px]">Show regions:</span>
           <button
             v-for="group in ['character', 'inventory', 'rewards']"
             :key="group"
-            class="toggle-btn"
-            :class="[`toggle-${group}`, { active: visibleGroups.has(group) }]"
+            class="px-3 py-0.5 rounded border border-dark-600 bg-dark-800 text-gray-mid cursor-pointer text-[11px] font-mono uppercase tracking-wide transition-opacity"
+            :class="[
+              { 'opacity-50': !visibleGroups.has(group) },
+              visibleGroups.has(group) && group === 'character' ? 'border-[#dbba7d88] text-[#dbba7d] bg-[#3a2a0055]' : '',
+              visibleGroups.has(group) && group === 'inventory' ? 'border-[#60a5fa88] text-[#60a5fa] bg-[#001a3a55]' : '',
+              visibleGroups.has(group) && group === 'rewards' ? 'border-[#a78bfa88] text-[#a78bfa] bg-[#2a1a4a55]' : '',
+            ]"
             @click="toggleGroup(group)"
           >
             {{ group }}
           </button>
         </div>
 
-        <div class="image-wrap">
-          <div class="image-container">
+        <div class="flex-1 overflow-auto p-4">
+          <div class="relative inline-block select-none">
             <img
               ref="imgRef"
               :src="`/fixtures/${encodeURIComponent(selectedName)}.png`"
               :alt="selectedName"
+              class="block max-w-full pointer-events-none"
+              style="max-height: calc(100vh - 180px)"
               draggable="false"
               @load="onImageLoad"
             />
 
-            <!-- SVG region overlay — viewBox 0 0 100 100 maps directly to % coords -->
             <svg
               v-if="imgLoaded"
-              class="region-overlay"
+              class="absolute inset-0 w-full h-full pointer-events-none"
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -291,16 +294,12 @@ onMounted(loadFixtures)
                 v-for="region in REGIONS"
                 v-show="visibleGroups.has(region.group)"
                 :key="region.id"
-                :x="region.xMin"
-                :y="region.yMin"
-                :width="region.xMax - region.xMin"
-                :height="region.yMax - region.yMin"
+                :x="region.xMin" :y="region.yMin"
+                :width="region.xMax - region.xMin" :height="region.yMax - region.yMin"
                 :fill="region.color"
                 :fill-opacity="hoveredRegion === region.id ? 0.35 : 0.18"
                 :stroke="region.color"
-                stroke-opacity="0.9"
-                stroke-width="0.4"
-                vector-effect="non-scaling-stroke"
+                stroke-opacity="0.9" stroke-width="0.4" vector-effect="non-scaling-stroke"
                 style="pointer-events: all; cursor: default"
                 @mouseenter="onRegionMouseEnter(region.id)"
                 @mouseleave="onRegionMouseLeave()"
@@ -310,32 +309,34 @@ onMounted(loadFixtures)
         </div>
 
         <!-- ── Footer ── -->
-        <footer class="debug-footer">
-          <!-- Region legend -->
-          <div class="legend">
+        <footer class="border-t border-dark-700 bg-dark-900 shrink-0 px-4 py-2.5 flex flex-col gap-1.5">
+          <div class="flex flex-wrap gap-x-5 gap-y-1.5">
             <div
               v-for="region in REGIONS"
               :key="region.id"
-              class="legend-item"
-              :class="{ 'legend-dim': !visibleGroups.has(region.group), 'legend-hover': hoveredRegion === region.id }"
+              class="flex items-center gap-1.5 transition-opacity"
+              :class="{ 'opacity-30': !visibleGroups.has(region.group) }"
             >
-              <span class="legend-swatch" :style="{ background: region.color }" />
-              <span class="legend-label">{{ region.label }}</span>
-              <span class="legend-sub">{{ region.sublabel }}</span>
+              <span
+                class="w-2.5 h-2.5 rounded-sm shrink-0 transition-transform"
+                :class="{ 'scale-[1.3]': hoveredRegion === region.id }"
+                :style="{ background: region.color }"
+              />
+              <span class="text-[#ccc] text-xs">{{ region.label }}</span>
+              <span class="text-dark-500 text-[11px]">{{ region.sublabel }}</span>
             </div>
           </div>
 
-          <!-- Hover color readout -->
-          <div v-if="hoveredRegionInfo() && topColors.length" class="hover-colors">
-            <span class="hover-title">
-              <strong>{{ hoveredRegionInfo()!.label }}</strong>
-              <span class="hover-sub">{{ hoveredRegionInfo()!.sublabel }}</span>
+          <div v-if="hoveredRegionInfo() && topColors.length" class="pt-2 border-t border-dark-800 flex flex-col gap-1.5">
+            <span class="flex items-baseline gap-2 text-xs">
+              <strong class="text-white">{{ hoveredRegionInfo()!.label }}</strong>
+              <span class="text-dark-500 text-[11px]">{{ hoveredRegionInfo()!.sublabel }}</span>
             </span>
-            <div class="color-grid">
-              <div v-for="entry in topColors" :key="entry.hex" class="color-entry">
-                <span class="color-swatch" :style="{ background: entry.hex }" />
-                <span class="color-hex">{{ entry.hex }}</span>
-                <span class="color-pct">{{ entry.pct }}%</span>
+            <div class="flex flex-wrap gap-1 gap-x-3">
+              <div v-for="entry in topColors" :key="entry.hex" class="flex items-center gap-1.5">
+                <span class="w-3.5 h-3.5 rounded-sm border border-white/15 shrink-0" :style="{ background: entry.hex }" />
+                <span class="text-[11px] text-[#ccc] tracking-[0.03em]">{{ entry.hex }}</span>
+                <span class="text-[11px] text-dark-500 min-w-7">{{ entry.pct }}%</span>
               </div>
             </div>
           </div>
@@ -344,304 +345,3 @@ onMounted(loadFixtures)
     </main>
   </div>
 </template>
-
-<style scoped>
-.screen-debug {
-  display: flex;
-  height: 100vh;
-  font-family: monospace;
-  font-size: 13px;
-  background: #1a1a1a;
-  color: #e0e0e0;
-}
-
-/* ── Sidebar ── */
-.fixture-list {
-  width: 260px;
-  flex-shrink: 0;
-  overflow-y: auto;
-  border-right: 1px solid #333;
-  padding: 8px 0;
-}
-
-.fixture-list h2 {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #888;
-  padding: 4px 12px 8px;
-  margin: 0;
-}
-
-.fixture-list ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.fixture-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 12px;
-  cursor: pointer;
-  gap: 6px;
-  border-left: 3px solid transparent;
-}
-
-.fixture-list li:hover {
-  background: #2a2a2a;
-}
-
-.fixture-list li.selected {
-  background: #1e3a5f;
-  border-left-color: #4a9eff;
-}
-
-.fixture-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-/* ── Screen type badges ── */
-.screen-badge {
-  flex-shrink: 0;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.badge-char {
-  background: #3a2a00;
-  color: #dbba7d;
-  border: 1px solid #dbba7d55;
-}
-
-.badge-inv {
-  background: #001a3a;
-  color: #60a5fa;
-  border: 1px solid #60a5fa55;
-}
-
-.badge-rewards {
-  background: #2a1a4a;
-  color: #a78bfa;
-  border: 1px solid #a78bfa55;
-}
-
-.badge-unknown {
-  background: #2a2a2a;
-  color: #666;
-  border: 1px solid #44444455;
-}
-
-/* ── Main area ── */
-.editor-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #555;
-}
-
-/* ── Controls ── */
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid #333;
-  flex-shrink: 0;
-}
-
-.controls-label {
-  color: #888;
-  font-size: 11px;
-}
-
-.toggle-btn {
-  padding: 3px 12px;
-  border-radius: 4px;
-  border: 1px solid #444;
-  background: #2a2a2a;
-  color: #888;
-  cursor: pointer;
-  font-size: 11px;
-  font-family: monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.5;
-  transition: opacity 0.1s;
-}
-
-.toggle-btn.active {
-  opacity: 1;
-}
-
-.toggle-character.active {
-  border-color: #dbba7d88;
-  color: #dbba7d;
-  background: #3a2a0055;
-}
-
-.toggle-inventory.active {
-  border-color: #60a5fa88;
-  color: #60a5fa;
-  background: #001a3a55;
-}
-
-.toggle-rewards.active {
-  border-color: #a78bfa88;
-  color: #a78bfa;
-  background: #2a1a4a55;
-}
-
-/* ── Image area ── */
-.image-wrap {
-  flex: 1;
-  overflow: auto;
-  padding: 16px;
-}
-
-.image-container {
-  position: relative;
-  display: inline-block;
-  user-select: none;
-}
-
-.image-container img {
-  display: block;
-  max-width: 100%;
-  max-height: calc(100vh - 180px);
-  pointer-events: none;
-}
-
-.region-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  /* pointer-events: none on SVG itself; rects override with pointer-events: all */
-  pointer-events: none;
-}
-
-/* ── Footer ── */
-.debug-footer {
-  border-top: 1px solid #333;
-  background: #1a1a1a;
-  flex-shrink: 0;
-  padding: 10px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: opacity 0.15s;
-}
-
-.legend-item.legend-dim {
-  opacity: 0.3;
-}
-
-.legend-item.legend-hover .legend-swatch {
-  transform: scale(1.3);
-}
-
-.legend-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  transition: transform 0.1s;
-}
-
-.legend-label {
-  color: #ccc;
-  font-size: 12px;
-}
-
-.legend-sub {
-  color: #666;
-  font-size: 11px;
-}
-
-.hover-colors {
-  border-top: 1px solid #2a2a2a;
-  padding-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.hover-title {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.hover-title strong {
-  color: #fff;
-}
-
-.hover-sub {
-  color: #666;
-  font-size: 11px;
-}
-
-.color-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-}
-
-.color-entry {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.color-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  flex-shrink: 0;
-}
-
-.color-hex {
-  font-size: 11px;
-  color: #ccc;
-  letter-spacing: 0.03em;
-}
-
-.color-pct {
-  font-size: 11px;
-  color: #666;
-  min-width: 28px;
-}
-</style>

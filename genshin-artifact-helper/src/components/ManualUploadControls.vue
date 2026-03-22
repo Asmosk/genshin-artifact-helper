@@ -33,13 +33,13 @@ async function handleFileUpload(event: Event): Promise<void> {
   <section class="control-section">
     <h2>Manual Upload</h2>
     <div
-      class="drop-zone"
+      class="border-2 border-dashed border-dark-600 rounded-lg p-8 text-center cursor-pointer transition-all duration-200 hover:border-neon-green hover:bg-neon-green/5"
       @drop="emit('file-drop', $event)"
       @dragover="emit('drag-over', $event)"
       @click="triggerFileUpload"
     >
-      <p>Click or drag image here</p>
-      <small>Supports PNG, JPG, WebP</small>
+      <p class="m-0 mb-2 text-white">Click or drag image here</p>
+      <small class="text-gray-mid">Supports PNG, JPG, WebP</small>
     </div>
     <input
       ref="fileInputRef"
@@ -51,27 +51,3 @@ async function handleFileUpload(event: Event): Promise<void> {
   </section>
 </template>
 
-<style scoped>
-.drop-zone {
-  border: 2px dashed #444;
-  border-radius: 8px;
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.drop-zone:hover {
-  border-color: #00ff00;
-  background: rgba(0, 255, 0, 0.05);
-}
-
-.drop-zone p {
-  margin: 0 0 0.5rem 0;
-  color: #fff;
-}
-
-.drop-zone small {
-  color: #888;
-}
-</style>

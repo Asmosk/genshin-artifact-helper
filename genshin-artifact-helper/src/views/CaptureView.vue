@@ -48,18 +48,21 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
 </script>
 
 <template>
-  <div class="capture-view">
-    <div class="header">
-      <h1>Capture Artifact</h1>
-      <div class="status" :class="{ error: captureStore.captureError }">
+  <div class="flex flex-col h-full p-4 gap-4">
+    <div class="flex justify-between items-center pb-4 border-b border-dark-700">
+      <h1 class="m-0 text-2xl text-white">Capture Artifact</h1>
+      <div
+        class="px-4 py-2 bg-dark-800 rounded text-sm text-gray-mid"
+        :class="{ 'bg-red-500 text-white': captureStore.captureError }"
+      >
         {{ captureActions.statusMessage.value }}
       </div>
     </div>
 
     <!-- Main Content -->
-    <div class="content">
+    <div class="content flex-1 overflow-hidden grid gap-4">
       <!-- Controls Panel -->
-      <div class="controls-panel">
+      <div class="flex flex-col gap-4 overflow-y-auto">
         <ScreenCaptureControls
           :has-capture="captureActions.hasCapture.value"
           :is-continuous="captureActions.isContinuous.value"
@@ -140,10 +143,10 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
       </div>
 
       <!-- Preview Panel -->
-      <div class="preview-panel">
-        <div class="preview-header">
-          <h2>Preview</h2>
-          <div v-if="captureActions.hasImage.value" class="preview-actions">
+      <div class="flex flex-col bg-dark-800 rounded-lg overflow-hidden">
+        <div class="flex justify-between items-center p-4 border-b border-dark-700">
+          <h2 class="m-0 text-base text-white">Preview</h2>
+          <div v-if="captureActions.hasImage.value" class="flex gap-2">
             <button
               class="btn btn-primary"
               :disabled="ocrStore.isProcessing"
@@ -154,12 +157,12 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
           </div>
         </div>
 
-        <div class="preview-content">
-          <div v-if="!captureActions.hasImage.value" class="preview-placeholder">
-            <p>No image captured</p>
+        <div class="flex-1 flex items-center justify-center overflow-auto bg-dark-900 p-4">
+          <div v-if="!captureActions.hasImage.value" class="text-center text-gray-mid">
+            <p class="m-0 mb-2 text-lg">No image captured</p>
             <small>Start screen capture or upload an image</small>
           </div>
-          <canvas v-else ref="previewCanvasRef" class="preview-canvas" />
+          <canvas v-else ref="previewCanvasRef" class="max-w-full max-h-full border border-dark-600" />
         </div>
 
         <!-- Region Previews -->
@@ -169,45 +172,49 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
         />
 
         <!-- OCR Progress -->
-        <div v-if="ocrStore.isProcessing" class="ocr-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: ocrStore.progress + '%' }" />
+        <div v-if="ocrStore.isProcessing" class="p-4 border-t border-dark-700 bg-dark-800">
+          <div class="w-full h-2 bg-dark-900 rounded overflow-hidden mb-2">
+            <div
+              class="h-full transition-[width] duration-300 ease-out"
+              style="background: linear-gradient(90deg, #00ff00, #00dd00)"
+              :style="{ width: ocrStore.progress + '%' }"
+            />
           </div>
-          <div class="progress-text">
+          <div class="text-xs text-gray-mid text-center">
             {{ ocrStore.progressStatus }} ({{ ocrStore.progress }}%)
           </div>
         </div>
 
         <div
           v-if="captureActions.hasImage.value && captureStore.capturedImage"
-          class="preview-info"
+          class="flex gap-8 p-4 border-t border-dark-700"
         >
-          <div class="info-item">
-            <label>Dimensions:</label>
-            <span>
+          <div class="flex gap-2 text-sm">
+            <label class="text-gray-mid">Dimensions:</label>
+            <span class="text-white font-mono">
               {{ captureStore.capturedImage.original.width }} x
               {{ captureStore.capturedImage.original.height }}
             </span>
           </div>
-          <div class="info-item">
-            <label>Timestamp:</label>
-            <span>{{ captureStore.capturedImage.timestamp.toLocaleTimeString() }}</span>
+          <div class="flex gap-2 text-sm">
+            <label class="text-gray-mid">Timestamp:</label>
+            <span class="text-white font-mono">{{ captureStore.capturedImage.timestamp.toLocaleTimeString() }}</span>
           </div>
           <div
             v-if="
               settingsStore.ocrSettings.regions.screenType === 'auto' &&
               ocrStore.detectedScreenType
             "
-            class="info-item"
+            class="flex gap-2 text-sm"
           >
-            <label>Screen Type:</label>
-            <span>{{ ocrStore.detectedScreenType }}</span>
+            <label class="text-gray-mid">Screen Type:</label>
+            <span class="text-white font-mono">{{ ocrStore.detectedScreenType }}</span>
           </div>
         </div>
       </div>
 
       <!-- OCR Results Panel -->
-      <div v-if="ocrStore.hasResult || ocrStore.hasError" class="ocr-panel">
+      <div v-if="ocrStore.hasResult || ocrStore.hasError" class="flex flex-col overflow-y-auto">
         <OCRResults />
       </div>
     </div>
@@ -215,165 +222,11 @@ callbacks.redrawPreview = () => canvasPreview.redrawPreview()
 </template>
 
 <style scoped>
-.capture-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 1rem;
-  gap: 1rem;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #333;
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: #fff;
-}
-
-.status {
-  padding: 0.5rem 1rem;
-  background: #2a2a2a;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  color: #888;
-}
-
-.status.error {
-  background: #ff4444;
-  color: #fff;
-}
-
 .content {
-  display: grid;
   grid-template-columns: 300px 1fr 400px;
-  gap: 1rem;
-  flex: 1;
-  overflow: hidden;
 }
 
-.content:not(:has(.ocr-panel)) {
+.content:not(:has(.ocr-panel > *)) {
   grid-template-columns: 300px 1fr;
-}
-
-.controls-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  overflow-y: auto;
-}
-
-.preview-panel {
-  display: flex;
-  flex-direction: column;
-  background: #2a2a2a;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #333;
-}
-
-.preview-header h2 {
-  margin: 0;
-  font-size: 1rem;
-  color: #fff;
-}
-
-.preview-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.preview-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
-  background: #1a1a1a;
-  padding: 1rem;
-}
-
-.preview-placeholder {
-  text-align: center;
-  color: #888;
-}
-
-.preview-placeholder p {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.1rem;
-}
-
-.preview-canvas {
-  max-width: 100%;
-  max-height: 100%;
-  border: 1px solid #444;
-}
-
-.preview-info {
-  padding: 1rem;
-  border-top: 1px solid #333;
-  display: flex;
-  gap: 2rem;
-}
-
-.info-item {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.info-item label {
-  color: #888;
-}
-
-.info-item span {
-  color: #fff;
-  font-family: monospace;
-}
-
-.ocr-progress {
-  padding: 1rem;
-  border-top: 1px solid #333;
-  background: #2a2a2a;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: #1a1a1a;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #00ff00, #00dd00);
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.85rem;
-  color: #888;
-  text-align: center;
-}
-
-.ocr-panel {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
 }
 </style>
