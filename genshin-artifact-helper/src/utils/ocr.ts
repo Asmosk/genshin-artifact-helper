@@ -52,7 +52,7 @@ export class OCRWorker {
     try {
       // Create worker with OEM in constructor (can't be changed after init)
       const workerOptions: Partial<WorkerOptions> = {
-        langPath: this.config.langPath ?? `${import.meta.env.BASE_URL}tessdata`,
+        langPath: this.config.langPath ?? `${import.meta.env.BASE_URL}/tessdata`,
         ...(this.config.cacheMethod !== undefined && { cacheMethod: this.config.cacheMethod }),
         gzip: false,
       }
