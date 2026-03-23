@@ -9,6 +9,7 @@ import { rollTablesPlugin } from './vite-plugin-roll-tables'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/genshin-artifact-helper',
   plugins: [
     vue(),
     tailwindcss(),
