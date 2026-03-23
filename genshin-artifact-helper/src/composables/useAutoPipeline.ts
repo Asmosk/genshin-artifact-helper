@@ -48,7 +48,7 @@ export function useAutoPipeline() {
     const clone = document.createElement('canvas')
     clone.width = source.width
     clone.height = source.height
-    clone.getContext('2d')!.drawImage(source, 0, 0)
+    clone.getContext('2d', { willReadFrequently: true })!.drawImage(source, 0, 0)
     return clone
   }
 
@@ -77,7 +77,7 @@ export function useAutoPipeline() {
       if (ocrStore.isProcessing) return
 
       const canvas = captured.original
-      const ctx = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
       if (!ctx) return
 
       const currentData = ctx.getImageData(0, 0, canvas.width, canvas.height)
