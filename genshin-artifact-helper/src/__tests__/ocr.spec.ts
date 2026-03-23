@@ -210,6 +210,7 @@ describe('OCR Integration Tests', () => {
 
     const worker = getOCRWorker({
       langPath: join(__dirname, '..', '..', 'public', 'tessdata'),
+      cacheMethod: 'none',
     })
     await worker.initialize()
   }, 30000)
